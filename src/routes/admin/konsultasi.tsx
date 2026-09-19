@@ -147,16 +147,22 @@ function KonsultasiPage() {
 
   useEffect(() => {
     fetchData();
-    fetchStats();
     
+    // Auto-poll every 10 seconds to guarantee real-time updates across browsers
+    const pollInterval = setInterval(() => {
+      fetchData();
+    }, 10000);
+
     const channel = supabase.channel('consultations-changes-konsultasi')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'consultations' }, () => {
         fetchData();
-        fetchStats();
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
   }, [debouncedSearch, statusFilter, levelFilter, dateFilter, page]);
 
   async function fetchStats() {

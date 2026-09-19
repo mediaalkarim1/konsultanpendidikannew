@@ -46,7 +46,7 @@ function DashboardPage() {
     data.forEach((row) => {
       total++;
       const s = (row.status || "").trim();
-      if (s.includes("Menunggu") || s.includes("Sedang") || s === "new") countNew++;
+      if (s.includes("Menunggu") || s.includes("Sedang") || s.includes("Belum") || s === "new" || s === "Belum Diproses") countNew++;
       else if (s.includes("AI Selesai") || s.includes("Selesai Dianalisis") || s === "analyzed") countAnalyzed++;
       else if (s.includes("Dihubungi") || s.includes("Follow Up") || s === "contacted") countContacted++;
       else if (s === "Selesai" || s.includes("Konsultasi Selesai") || s === "Closed" || s === "done") countDone++;
@@ -81,15 +81,19 @@ function DashboardPage() {
   useEffect(() => {
     fetchStats();
 
+    const pollInterval = setInterval(() => {
+      fetchStats();
+    }, 10000);
+
     // Supabase Realtime Subscription
     const channel = supabase.channel('dashboard-stats')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'consultations' }, () => {
-        // Debounce or just call directly since it's an admin dashboard
         fetchStats();
       })
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, []);

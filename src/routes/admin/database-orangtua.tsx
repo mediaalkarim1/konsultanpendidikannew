@@ -51,6 +51,22 @@ export function DatabaseOrangTuaPage() {
 
   useEffect(() => {
     fetchParents();
+
+    // Auto-poll every 10 seconds to guarantee real-time data sync
+    const pollInterval = setInterval(() => {
+      fetchParents();
+    }, 10000);
+
+    const channel = supabase.channel('parents-changes-db')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'consultations' }, () => {
+        fetchParents();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
   }, [page, debouncedSearch, levelFilter, dateFilter]);
 
   async function fetchParents() {
