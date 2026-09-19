@@ -6,7 +6,7 @@ function isNewSupabaseApiKey(value: string): boolean {
 }
 
 export function getAdminSupabase() {
-  const DEFAULT_URL = "https://muyugntbzspnincoaekj.supabase.co";
+  const DEFAULT_URL = "https://oxepappuzbeiogghnkjr.supabase.co";
   const DEFAULT_KEY = "sb_publishable_JDRo4B86mh4m2GxUNBOpWw_VEjzqcU1";
   const DEFAULT_SERVICE_KEY = (typeof process !== 'undefined' && (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.SUPABASE_SERVICE_KEY || process.env?.VITE_SUPABASE_SERVICE_ROLE_KEY)) || (["sb_secret", "DB97atj8YHtCguIYkGu_yg_k5TPgAVG"].join("_"));
 
