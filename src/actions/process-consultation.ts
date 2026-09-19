@@ -162,25 +162,12 @@ export async function submitConsultationHandler(data: ConsultationSubmitPayload)
       cErr = res2.error;
     }
 
-    // Fallback Attempt 2: If DB insert blocked, generate resilient consultation session ID
     if (cErr || !consultation) {
-      console.warn("[Submit DB Warning]: Consultations table insert blocked, using resilient consultation session...", cErr?.message);
-      const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : "10000000-0000-4000-8000-" + Date.now().toString().slice(-12);
-      consultation = {
-        id: fallbackId,
-        parent_name: parent_name.trim(),
-        child_name: child_name.trim(),
-        whatsapp_number: whatsapp_number.trim(),
-        level,
-        status: "Belum Diproses",
-        created_at: new Date().toISOString()
+      console.error("[Submit DB Error]: Consultations table insert blocked or failed", cErr);
+      return { 
+        success: false, 
+        error: "Gagal menyimpan data konsultasi ke database Supabase (" + (cErr?.message || "Izin ditolak atau skema tidak cocok") + "). Silakan hubungi admin." 
       };
-      cErr = null;
-    }
-
-    if (!consultation) {
-      console.error("[Submit DB Error]: Failed to create consultation object");
-      return { success: false, error: "Gagal memproses data konsultasi. Silakan coba kembali." };
     }
 
     savedAnalysisRow.consultation_id = consultation.id;
