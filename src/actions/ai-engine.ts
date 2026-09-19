@@ -365,7 +365,7 @@ Berikan keluaran dalam format JSON valid berikut (tanpa markdown codeblock):
     console.log("==================================================");
 
     // Parse JSON
-    const parsed = parseAiJsonResponse(rawResponseText, formattedAnswers);
+    const parsed = parseAiJsonResponse(rawResponseText, formattedAnswers, childName);
 
     // [TAHAP 8 AUDIT LOG: AI PARSED RESULT]
     console.log("==================================================");
@@ -401,7 +401,22 @@ Berikan keluaran dalam format JSON valid berikut (tanpa markdown codeblock):
 
 import { sanitizeAnalysisMarkdown } from "@/lib/pdf-generator";
 
-function parseAiJsonResponse(text: string, formattedAnswers?: string): AiAnalysisResult {
+export function sanitizeNameRepetition(text: string, childName: string): string {
+  if (!text || !childName || childName === "-" || childName.trim().length < 2) return text;
+  
+  const cName = childName.trim();
+  const escapedName = cName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
+
+  let count = 0;
+  return text.replace(regex, (match) => {
+    count++;
+    if (count <= 1) return match;
+    return count % 2 === 0 ? "ia" : "Ananda";
+  });
+}
+
+function parseAiJsonResponse(text: string, formattedAnswers?: string, childName?: string): AiAnalysisResult {
   try {
     // Clean codeblock formatting if present
     const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -411,11 +426,11 @@ function parseAiJsonResponse(text: string, formattedAnswers?: string): AiAnalysi
 
     let summaryStr = "";
     if (Array.isArray(obj.summary_points) && obj.summary_points.length > 0) {
-      summaryStr = obj.summary_points.map((p: string) => `• ${sanitizeAnalysisMarkdown(p)}`).join("\n");
+      summaryStr = obj.summary_points.map((p: string) => sanitizeAnalysisMarkdown(p)).join("\n\n");
     } else if (typeof obj.summary === "string") {
       summaryStr = sanitizeAnalysisMarkdown(obj.summary);
     } else {
-      summaryStr = "• Ringkasan disusun berdasarkan fakta jawaban kuesioner.";
+      summaryStr = "Ringkasan disusun berdasarkan fakta jawaban kuesioner.";
     }
 
     let concernsStr = "";
@@ -479,6 +494,13 @@ function parseAiJsonResponse(text: string, formattedAnswers?: string): AiAnalysi
       if (lowerAnswers.includes("mampu mengelola waktu") || lowerAnswers.includes("disiplin waktu")) {
         concernsStr = concernsStr.split("\n\n").filter(block => !/manajemen waktu|prokrastinasi|menunda/i.test(block)).join("\n\n");
       }
+    }
+
+    // Sanitize child name repetition across sections
+    if (childName && childName !== "-") {
+      summaryStr = sanitizeNameRepetition(summaryStr, childName);
+      concernsStr = sanitizeNameRepetition(concernsStr, childName);
+      potentialsStr = sanitizeNameRepetition(potentialsStr, childName);
     }
 
     const fullNarrative = `RINGKASAN AWAL\n\n${summaryStr}\n\nAREA YANG PERLU DIPERHATIKAN\n\n${concernsStr}\n\nMINAT & POTENSI\n\n${potentialsStr}\n\nREKOMENDASI PENDAMPINGAN RUMAH\n\n${recsStr}`;
@@ -557,41 +579,46 @@ const SEMANTIC_MAPPINGS: SemanticMapping[] = [
 ];
 
 /**
- * Helper to transform short raw parent answers into complete, natural sentences.
+ * Helper to transform short raw parent answers into complete, natural sentences with pronoun variation.
  */
-function formatNaturalDescription(childName: string, rawA: string, title: string, category: "positive" | "concern"): string {
+function formatNaturalDescription(childName: string, rawA: string, title: string, category: "positive" | "concern", index: number = 0): string {
   const normA = rawA.trim().replace(/\.$/, "");
   // Strip leading child name if present (e.g. "Adiba bermain..." -> "bermain...")
-  const cleanAnswer = normA.replace(new RegExp(`^(${childName}|ananda|anak)\\s+`, "i"), "").trim();
+  const cleanAnswer = normA.replace(new RegExp(`^(${childName}|ananda|ia|anak)\\s+`, "i"), "").trim();
   const lowerA = cleanAnswer.toLowerCase();
 
-  // Custom transformers for known short raw answers
-  if (lowerA.includes("lebih dari 2 jam") || lowerA.includes("lebih dari 3 jam")) {
-    return `${childName} menggunakan perangkat gawai dengan durasi ${cleanAnswer}, sehingga memerlukan kesepakatan batas waktu layar yang sehat.`;
+  // Alternate pronouns naturally: Ananda, Ia
+  const pronoun = index % 2 === 0 ? "Ananda" : "Ia";
+
+  if (lowerA.includes("lebih dari 2 jam") || lowerA.includes("lebih dari 3 jam") || lowerA.includes("4–6 jam") || lowerA.includes("4-6 jam")) {
+    return `Penggunaan perangkat digital dengan durasi ${cleanAnswer} harian memerlukan kesepakatan batas waktu layar yang sehat dan seimbang.`;
   }
   if (lowerA.includes("menangis atau marah") || lowerA.includes("menangis") || lowerA.includes("marah")) {
-    return `${childName} terkadang mengekspresikan dinamika emosi seperti ${cleanAnswer} saat harus beralih aktivitas atau menghadapi rasa lelah.`;
+    return `${pronoun} terkadang mengekspresikan dinamika emosi seperti ${cleanAnswer} saat harus beralih aktivitas atau menghadapi rasa lelah.`;
   }
   if (lowerA.includes("mudah menyerah")) {
-    return `${childName} cenderung ${cleanAnswer} ketika menghadapi tugas yang dirasa sulit, sehingga memerlukan dorongan ketahanan secara bertahap.`;
+    return `Kecenderungan ${cleanAnswer} ketika menghadapi tugas yang dirasa sulit memerlukan dorongan ketahanan belajar secara bertahap.`;
   }
   if (lowerA.includes("masih dibantu orang tua") || lowerA.includes("hampir semua masih dibantu")) {
-    return `${childName} saat ini ${cleanAnswer} dalam memenuhi kebutuhan harian, yang menjadi peluang untuk melatih kemandirian diri secara bertahap.`;
+    return `Saat ini sebagian besar kebutuhan harian masih dibantu oleh orang tua, yang menjadi peluang baik untuk melatih kemandirian diri secara bertahap.`;
   }
   if (lowerA.includes("sulit fokus") || lowerA.includes("terlalu aktif") || lowerA.includes("pemalu")) {
-    return `${childName} menunjukkan dinamika seperti ${cleanAnswer} yang memerlukan perhatian serta pengarahan positif secara konsisten.`;
+    return `${pronoun} memperlihatkan dinamika seperti ${cleanAnswer} yang memerlukan perhatian serta pengarahan positif secara konsisten.`;
   }
   if (lowerA.includes("bermain bersama teman")) {
-    return `${childName} senang mengisi waktu dengan ${cleanAnswer}, yang mencerminkan ketertarikan interaksi sosial positif.`;
+    return `${pronoun} senang mengisi waktu dengan ${cleanAnswer}, yang mencerminkan ketertarikan interaksi sosial positif bersama teman sebaya.`;
   }
   if (lowerA.includes("mandiri") && lowerA.includes("percaya diri")) {
-    return `${childName} memperlihatkan karakter positif seperti ${cleanAnswer} dalam beberapa situasi harian.`;
+    return `${pronoun} memperlihatkan fondasi karakter positif seperti ${cleanAnswer} dalam beberapa situasi harian.`;
   }
   if (lowerA.includes("bahagia belajar") || lowerA.includes("berbahasa inggris") || lowerA.includes("hafal al-qur'an")) {
-    return `${childName} memiliki potensi dan kebiasaan baik yaitu ${cleanAnswer}, yang menjadi aset penting dalam perkembangan pendidikannya.`;
+    return `${pronoun} memiliki potensi dan kebiasaan baik yaitu ${cleanAnswer}, yang menjadi aset penting dalam perkembangan pendidikannya.`;
+  }
+  if (lowerA.includes("membuat karya") || lowerA.includes("proyek")) {
+    return `${pronoun} menunjukkan minat tinggi dalam ${cleanAnswer}, yang menjadi sarana ekspresi dan kreativitas positif.`;
   }
 
-  return `${childName} ${cleanAnswer.charAt(0).toLowerCase() + cleanAnswer.slice(1)}.`;
+  return `${pronoun} ${cleanAnswer.charAt(0).toLowerCase() + cleanAnswer.slice(1)}.`;
 }
 
 /**
@@ -706,13 +733,14 @@ export function generateInterpretedAnalysis(parentName: string, childName: strin
   const potentialsList: { title: string; desc: string }[] = [];
   const recommendationsList: { title: string; desc: string }[] = [];
 
-  for (const item of qa) {
+  for (let idx = 0; idx < qa.length; idx++) {
+    const item = qa[idx];
     const interpreted = interpretAnswer(item.a, item.q);
     if (!interpreted) continue;
     if (seenTitles.has(interpreted.title)) continue;
     seenTitles.add(interpreted.title);
 
-    const desc = formatNaturalDescription(nameDisplay, item.a, interpreted.title, interpreted.category);
+    const desc = formatNaturalDescription(nameDisplay, item.a, interpreted.title, interpreted.category, idx);
 
     if (interpreted.category === "concern") {
       concernsList.push({ title: interpreted.title, desc });
@@ -723,21 +751,39 @@ export function generateInterpretedAnalysis(parentName: string, childName: strin
     }
   }
 
-  // Construct cohesive narrative executive summary connecting answers, potentials, and attention areas
+  // Construct cohesive narrative executive summary with ZERO repetitive name mentions
+  const stripSubject = (text: string): string => {
+    if (!text) return "";
+    let s = text.trim().replace(/[\.\,]+$/, "");
+    const reg = new RegExp(`^(${nameDisplay}|ananda|ia|anak)\\s+`, "i");
+    s = s.replace(reg, "").trim();
+    if (s.length > 0) {
+      s = s.charAt(0).toLowerCase() + s.slice(1);
+    }
+    return s;
+  };
+
+  const pSummaries = potentialsList.map(p => stripSubject(p.desc)).filter(Boolean);
+  const cSummaries = concernsList.map(c => stripSubject(c.desc)).filter(Boolean);
+
   let summary = "";
-  if (potentialsList.length > 0 && concernsList.length > 0) {
-    const potSummary = potentialsList.slice(0, 2).map(p => p.desc).join(" ");
-    const conSummary = concernsList.slice(0, 2).map(c => c.desc).join(" ");
-    summary = `Berdasarkan informasi kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameDisplay} pada jenjang ${jenjangLabel} memiliki potensi positif yang dapat dioptimalkan. ${potSummary} Di samping potensi tersebut, terdapat area perhatian yang memerlukan pendampingan harian, seperti ${conSummary} Dengan memanfaatkan kegemaran dan potensi positif yang dimiliki ${nameDisplay}, proses bimbingan untuk area perhatian tersebut dapat dilakukan secara lebih menyenangkan dan efektif di rumah.`;
-  } else if (potentialsList.length > 0) {
-    const potSummary = potentialsList.map(p => p.desc).join(" ");
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameDisplay} pada jenjang ${jenjangLabel} menunjukkan dorongan potensi yang sangat positif. ${potSummary} Kekuatan dan minat bawaan ini menjadi fondasi utama bagi perkembangan karakter serta prestasi belajar ${nameDisplay} ke depan.`;
-  } else if (concernsList.length > 0) {
-    const conSummary = concernsList.map(c => c.desc).join(" ");
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, terdapat beberapa catatan penting mengenai kondisi belajar ${nameDisplay} pada jenjang ${jenjangLabel}. ${conSummary} Diperlukan bentuk pendampingan rumah yang terstruktur dan konsisten agar ${nameDisplay} mampu mengatasi tantangan tersebut secara optimal.`;
+  const nameRef = (childName && childName !== "-") ? `Ananda ${childName}` : "Ananda";
+
+  if (pSummaries.length > 0 && cSummaries.length > 0) {
+    const mainPotential = pSummaries.slice(0, 2).join(" serta ");
+    const mainConcern = cSummaries.slice(0, 2).join(", serta ");
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameRef} pada jenjang ${jenjangLabel} secara umum menunjukkan dorongan perkembangan dan potensi minat yang sangat baik. Di rumah, ia ${mainPotential}. Namun demikian, terdapat beberapa area yang memerlukan perhatian khusus dalam pendampingan harian, seperti ${mainConcern}. Melalui strategi pendampingan yang memanfaatkan kegemaran dan potensi positifnya, berbagai area perhatian tersebut dapat dibimbing secara lebih efektif, bertahap, dan menyenangkan di rumah.`;
+  } else if (pSummaries.length > 0) {
+    const mainPotential = pSummaries.slice(0, 2).join(" serta ");
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameRef} pada jenjang ${jenjangLabel} secara umum menunjukkan dorongan potensi yang sangat positif. Di rumah, ia ${mainPotential}. Kekuatan dan minat bawaan ini menjadi fondasi utama bagi perkembangan karakter serta prestasi belajar anak ke depan.`;
+  } else if (cSummaries.length > 0) {
+    const mainConcern = cSummaries.slice(0, 2).join(", serta ");
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, terdapat beberapa catatan penting mengenai kondisi belajar ${nameRef} pada jenjang ${jenjangLabel}, khususnya terkait ${mainConcern}. Diperlukan bentuk pendampingan rumah yang terstruktur dan konsisten agar Ananda mampu mengatasi tantangan tersebut secara optimal.`;
   } else {
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameDisplay} telah menyelesaikan pemetaan awal kondisi belajar pada jenjang ${jenjangLabel}.`;
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameRef} telah menyelesaikan pemetaan awal kondisi belajar pada jenjang ${jenjangLabel}. Hasil evaluasi ini dapat dijadikan panduan awal dalam merancang pendampingan yang sesuai di rumah.`;
   }
+
+  summary = sanitizeNameRepetition(summary, nameDisplay);
 
   // Deduplicate recommendations list
   const seenRecTitles = new Set<string>();
