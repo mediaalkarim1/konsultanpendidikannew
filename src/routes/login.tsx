@@ -27,8 +27,8 @@ function LoginPage() {
     setLoading(true);
     
     const cleanUsername = username.trim();
-    const loginEmail = cleanUsername === "mediaalkarim" ? "admin@mediaalkarim.com" : cleanUsername;
-    const isDefaultAdmin = (cleanUsername === "mediaalkarim" || loginEmail === "admin@mediaalkarim.com") && password === "mediaalkarim";
+    const loginEmail = cleanUsername === "mediaalkarim" ? "admin@mediaalkarim.com" : cleanUsername === "admin" ? "admin@admin.com" : cleanUsername;
+    const isDefaultAdmin = (cleanUsername === "mediaalkarim" || cleanUsername === "admin" || loginEmail === "admin@mediaalkarim.com" || loginEmail === "admin@admin.com") && (password === "mediaalkarim" || password === "admin");
 
     try {
       // 1. Try signing in with Supabase Auth
