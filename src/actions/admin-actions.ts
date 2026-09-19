@@ -594,7 +594,7 @@ export function normalizeParentRow(row: any) {
   let childName = (row.child_name && row.child_name !== "-") ? row.child_name : "";
   let whatsappNumber = row.whatsapp_number || row.parent_phone || row.phone || "";
   let level = row.level || row.education_level || "tksd";
-  let status = (row.status || "Menunggu Analisis").trim();
+  let status = (row.status || "Belum Diproses").trim();
 
   // If child_name is missing, empty, or '-', attempt to extract it from parent_name if saved as "Parent (Anak: Child)"
   if ((!childName || childName === "-") && typeof parentName === "string" && parentName.includes(" (Anak: ")) {
@@ -607,16 +607,14 @@ export function normalizeParentRow(row: any) {
   if (status.toLowerCase().includes("gagal")) {
     status = "Gagal Analisis";
   } else if (status.includes("AI Selesai") || status.includes("Selesai Dianalisis") || status === "Analisis AI Selesai" || status === "Sudah Dianalisis") {
-    status = "Analisis AI Selesai";
+    status = "Sudah Dianalisis";
   } else if (status === "Sudah Dihubungi" || status.includes("Follow Up")) {
     status = "Sudah Dihubungi";
   } else if (status === "Selesai" || status === "Closed" || status.includes("Konsultasi Selesai")) {
     status = "Selesai";
   } else {
-    status = "Menunggu Analisis";
+    status = "Belum Diproses";
   }
-
-
 
   return {
     ...row,
@@ -748,15 +746,7 @@ export async function getConsultationDetailHandler(consultationId: string) {
         const { data: sRow } = await supabaseAdmin.from("settings").select("value").eq("key", `consultation.${consultationId}`).maybeSingle();
         if (sRow?.value) {
           const val: any = sRow.value;
-          consultation = {
-            id: consultationId,
-            parent_name: val.parent_name || "Orang Tua",
-            child_name: val.child_name || "-",
-            whatsapp_number: val.whatsapp_number || "",
-            level: val.level || "tksd",
-            status: val.status || "Belum Diproses",
-            created_at: val.created_at || new Date().toISOString()
-          };
+          consultation = val;
         }
       } catch (_) {}
     }
@@ -797,48 +787,48 @@ export async function getConsultationDetailHandler(consultationId: string) {
       return { success: false, error: "Data konsultasi tidak ditemukan." };
     }
 
-    // 2. Fetch answers
-    let answers: any[] = [];
+    // 2. Fetch consultation answers
+    let mappedAnswers: { q: string; a: string }[] = [];
     try {
       const { data: dbAnswers } = await (supabaseAdmin as any)
         .from("consultation_answers")
-        .select("*, questions(question_text)")
+        .select(`
+          answer_text,
+          question_id,
+          selected_option_ids,
+          questions:question_id (question_text)
+        `)
         .eq("consultation_id", consultationId);
-      if (dbAnswers && dbAnswers.length > 0) answers = dbAnswers;
+
+      if (dbAnswers && dbAnswers.length > 0) {
+        mappedAnswers = dbAnswers.map((item: any) => ({
+          q: item.questions?.question_text || "Pertanyaan Kuesioner",
+          a: item.answer_text || "-"
+        }));
+      }
     } catch (_) {}
 
-    if (answers.length === 0) {
+    // Fallback answers from in-memory or raw backup
+    if (mappedAnswers.length === 0 && consultation.answers_raw && Array.isArray(consultation.answers_raw)) {
+      mappedAnswers = consultation.answers_raw.map((a: any) => ({
+        q: a.question_text || "Pertanyaan Kuesioner",
+        a: a.answer_text || "-"
+      }));
+    }
+
+    if (mappedAnswers.length === 0) {
       try {
         const globalObj = (typeof globalThis !== 'undefined' ? globalThis : global) as any;
         const store = globalObj.__EDU_KONSUL_ANSWERS_STORE__;
         if (store && store.has(consultationId)) {
-          answers = store.get(consultationId) || [];
+          const rawAns = store.get(consultationId) || [];
+          mappedAnswers = rawAns.map((a: any) => ({
+            q: a.questions?.question_text || a.question || a.q || "Pertanyaan Kuesioner",
+            a: a.answer_text || a.answer || a.a || "-"
+          }));
         }
       } catch (_) {}
     }
-
-    const allOptionIds = answers?.flatMap((a: any) => a.selected_option_ids || []).filter(Boolean) || [];
-    let optionsMap: Record<string, string> = {};
-    if (allOptionIds.length > 0) {
-      try {
-        const { data: opts } = await (supabaseAdmin as any)
-          .from("question_options")
-          .select("id, option_text")
-          .in("id", allOptionIds);
-        if (opts) optionsMap = opts.reduce((acc: any, o: any) => ({ ...acc, [o.id]: o.option_text }), {});
-      } catch (_) {}
-    }
-
-    const mappedAnswers = (answers || []).map((a: any) => {
-      const qText = a.questions?.question_text || a.question || a.q || "Pertanyaan Kuesioner";
-      const optTexts = (a.selected_option_ids || [])
-        .map((oid: string) => optionsMap[oid] || oid)
-        .filter((t: string) => t && !/^[0-9a-f-]{36}$/i.test(t));
-      const rawAns = a.answer_text || a.answer || a.a;
-      const isValidText = rawAns && rawAns !== "-" && !rawAns.startsWith("opt-") && !/^[0-9a-f-]{36}$/i.test(rawAns);
-      const aText = isValidText ? rawAns : (optTexts.length > 0 ? optTexts.join(", ") : (rawAns || "-"));
-      return { q: qText, a: aText };
-    });
 
     const formattedAnsStr = mappedAnswers.map((item: any) => `P: ${item.q}\nJ: ${item.a}`).join("\n\n");
 
@@ -982,26 +972,30 @@ export const getConsultationsListAction = createServerFn({ method: "POST" })
 
       let allMergedCons = Array.from(consMap.values());
 
-      // 5. Apply Stats & Filtering
+      // 5. Normalize ALL merged consultations FIRST before stats calculation and filtering
+      const allNormalizedCons = allMergedCons.map((item: any) => {
+        const isAnalyzed = analyzedSet.has(item.id) || Boolean(item.ai_result);
+        return normalizeParentRow({
+          ...item,
+          status: isAnalyzed && item.status !== "Sudah Dihubungi" && item.status !== "Selesai" ? "Sudah Dianalisis" : item.status,
+          ai_result: item.ai_result || (isAnalyzed ? "ANALYZED_DONE" : null)
+        });
+      });
+
+      // Stats calculation
       const todayStr = new Date().toISOString().split("T")[0];
       let todayCount = 0;
       let pendingAiCount = 0;
       let pendingFollowUpCount = 0;
       let completedCount = 0;
 
-      allMergedCons.forEach((item) => {
+      allNormalizedCons.forEach((item) => {
         const itemDate = item.created_at ? new Date(item.created_at).toISOString().split("T")[0] : "";
         if (itemDate === todayStr) todayCount++;
 
-        const isAnalyzed = analyzedSet.has(item.id);
-        const norm = normalizeParentRow({
-          ...item,
-          status: isAnalyzed && item.status !== "Sudah Dihubungi" && item.status !== "Selesai" ? "Analisis AI Selesai" : item.status
-        });
-
-        if (norm.status === "Analisis AI Selesai" || norm.status === "Sudah Dihubungi") {
+        if (item.status === "Sudah Dianalisis" || item.status === "Sudah Dihubungi") {
           pendingFollowUpCount++;
-        } else if (norm.status === "Selesai") {
+        } else if (item.status === "Selesai") {
           completedCount++;
         } else {
           pendingAiCount++;
@@ -1009,7 +1003,7 @@ export const getConsultationsListAction = createServerFn({ method: "POST" })
       });
 
       // Apply Filters
-      let filteredCons = [...allMergedCons];
+      let filteredCons = [...allNormalizedCons];
       if (search) {
         const sLower = search.toLowerCase();
         filteredCons = filteredCons.filter(c => 
@@ -1019,12 +1013,13 @@ export const getConsultationsListAction = createServerFn({ method: "POST" })
         );
       }
       if (status) {
-        if (status === "Menunggu Analisis" || status === "Belum Diproses") filteredCons = filteredCons.filter(c => ["Menunggu Analisis", "Menunggu Analisis AI", "Sedang Dianalisis", "Belum Diproses"].includes(c.status));
-        else if (status === "Analisis AI Selesai" || status === "Sudah Dianalisis") filteredCons = filteredCons.filter(c => ["Analisis AI Selesai", "Selesai Dianalisis", "Sudah Dianalisis"].includes(c.status));
-        else if (status === "Sudah Dihubungi") filteredCons = filteredCons.filter(c => ["Sudah Dihubungi", "Menunggu Follow Up Konsultan"].includes(c.status));
-        else if (status === "Selesai") filteredCons = filteredCons.filter(c => ["Selesai", "Konsultasi Selesai", "Closed"].includes(c.status));
-        else if (status === "Gagal Analisis") filteredCons = filteredCons.filter(c => ["Gagal Analisis", "Gagal Analisis AI"].includes(c.status));
-        else filteredCons = filteredCons.filter(c => c.status === status);
+        if (status === "Menunggu Analisis" || status === "Belum Diproses") {
+          filteredCons = filteredCons.filter(c => c.status === "Belum Diproses" || c.status === "Menunggu Analisis");
+        } else if (status === "Analisis AI Selesai" || status === "Sudah Dianalisis") {
+          filteredCons = filteredCons.filter(c => c.status === "Sudah Dianalisis" || c.status === "Analisis AI Selesai");
+        } else {
+          filteredCons = filteredCons.filter(c => c.status === status);
+        }
       }
       if (level) {
         filteredCons = filteredCons.filter(c => c.level === level);
@@ -1040,20 +1035,12 @@ export const getConsultationsListAction = createServerFn({ method: "POST" })
       const from = (page - 1) * limit;
       const paginatedData = filteredCons.slice(from, from + limit);
 
-      const normalizedData = paginatedData.map((row: any) => {
-        const isAnalyzed = analyzedSet.has(row.id) || Boolean(row.ai_result);
-        return normalizeParentRow({
-          ...row,
-          ai_result: row.ai_result || (isAnalyzed ? "ANALYZED_DONE" : null)
-        });
-      });
-
       return {
         success: true,
-        data: normalizedData,
+        data: paginatedData,
         count: filteredCons.length,
         stats: {
-          total: allMergedCons.length,
+          total: allNormalizedCons.length,
           today: todayCount,
           pendingAi: pendingAiCount,
           pendingFollowUp: pendingFollowUpCount,
