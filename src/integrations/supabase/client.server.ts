@@ -37,8 +37,8 @@ function getEnvVar(viteKey: string, processKey: string, fallback: string): strin
 }
 
 function createSupabaseAdminClient() {
-  const DEFAULT_URL = "https://oxepappuzbeiogghnkjr.supabase.co";
-  const DEFAULT_KEY = "sb_publishable_JDRo4B86mh4m2GxUNBOpWw_VEjzqcU1";
+  const DEFAULT_URL = "https://muyugntbzspnincoaekj.supabase.co";
+  const DEFAULT_KEY = "sb_publishable_KHzSJnooFPXSFmwcL8yvpg_pHLzwSBK";
 
   const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', 'SUPABASE_URL', DEFAULT_URL);
   const SUPABASE_SERVICE_ROLE_KEY = getEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', DEFAULT_KEY);
