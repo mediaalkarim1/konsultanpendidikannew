@@ -212,9 +212,9 @@ function KonsultasiPage() {
         }
       });
 
-      if (res.success && res.data && res.data.length > 0) {
+      if (res && res.success && Array.isArray(res.data)) {
         setData(res.data as any);
-        setTotal(res.count);
+        setTotal(res.count || 0);
         if (res.stats && res.stats.total > 0) setStats(res.stats);
         else fetchStats();
       } else {
@@ -237,8 +237,8 @@ function KonsultasiPage() {
       query = query.or(`parent_name.ilike.%${debouncedSearch}%,whatsapp_number.ilike.%${debouncedSearch}%`);
     }
     if (statusFilter) {
-      if (statusFilter === "Menunggu Analisis") query = query.in("status", ["Menunggu Analisis", "Menunggu Analisis AI", "Sedang Dianalisis"]);
-      else if (statusFilter === "Analisis AI Selesai") query = query.in("status", ["Analisis AI Selesai", "Selesai Dianalisis"]);
+      if (statusFilter === "Menunggu Analisis" || statusFilter === "Belum Diproses") query = query.in("status", ["Menunggu Analisis", "Menunggu Analisis AI", "Sedang Dianalisis", "Belum Diproses"]);
+      else if (statusFilter === "Analisis AI Selesai" || statusFilter === "Sudah Dianalisis") query = query.in("status", ["Analisis AI Selesai", "Selesai Dianalisis", "Sudah Dianalisis"]);
       else query = query.eq("status", statusFilter);
     }
     if (levelFilter) query = query.eq("level", levelFilter as any);

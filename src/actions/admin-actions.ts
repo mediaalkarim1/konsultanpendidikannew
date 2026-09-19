@@ -607,13 +607,13 @@ export function normalizeParentRow(row: any) {
   if (status.toLowerCase().includes("gagal")) {
     status = "Gagal Analisis";
   } else if (status.includes("AI Selesai") || status.includes("Selesai Dianalisis") || status === "Analisis AI Selesai" || status === "Sudah Dianalisis") {
-    status = "Sudah Dianalisis";
+    status = "Analisis AI Selesai";
   } else if (status === "Sudah Dihubungi" || status.includes("Follow Up")) {
     status = "Sudah Dihubungi";
   } else if (status === "Selesai" || status === "Closed" || status.includes("Konsultasi Selesai")) {
     status = "Selesai";
   } else {
-    status = "Belum Diproses";
+    status = "Menunggu Analisis";
   }
 
 
@@ -1019,8 +1019,8 @@ export const getConsultationsListAction = createServerFn({ method: "POST" })
         );
       }
       if (status) {
-        if (status === "Menunggu Analisis") filteredCons = filteredCons.filter(c => ["Menunggu Analisis", "Menunggu Analisis AI", "Sedang Dianalisis"].includes(c.status));
-        else if (status === "Analisis AI Selesai") filteredCons = filteredCons.filter(c => ["Analisis AI Selesai", "Selesai Dianalisis"].includes(c.status));
+        if (status === "Menunggu Analisis" || status === "Belum Diproses") filteredCons = filteredCons.filter(c => ["Menunggu Analisis", "Menunggu Analisis AI", "Sedang Dianalisis", "Belum Diproses"].includes(c.status));
+        else if (status === "Analisis AI Selesai" || status === "Sudah Dianalisis") filteredCons = filteredCons.filter(c => ["Analisis AI Selesai", "Selesai Dianalisis", "Sudah Dianalisis"].includes(c.status));
         else if (status === "Sudah Dihubungi") filteredCons = filteredCons.filter(c => ["Sudah Dihubungi", "Menunggu Follow Up Konsultan"].includes(c.status));
         else if (status === "Selesai") filteredCons = filteredCons.filter(c => ["Selesai", "Konsultasi Selesai", "Closed"].includes(c.status));
         else if (status === "Gagal Analisis") filteredCons = filteredCons.filter(c => ["Gagal Analisis", "Gagal Analisis AI"].includes(c.status));
