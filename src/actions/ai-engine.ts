@@ -686,20 +686,26 @@ export function generateInterpretedAnalysis(parentName: string, childName: strin
     if (interpreted.category === "concern") {
       concernsList.push({ title: interpreted.title, desc });
       recommendationsList.push({ title: interpreted.recTitle, desc: interpreted.recDesc(nameDisplay) });
-      summaryPoints.push(`• ${nameDisplay} memerlukan perhatian pada aspek ${interpreted.title.toLowerCase()} (${rawA}).`);
     } else {
       potentialsList.push({ title: interpreted.title, desc });
       recommendationsList.push({ title: interpreted.recTitle, desc: interpreted.recDesc(nameDisplay) });
-      summaryPoints.push(`• ${desc}`);
     }
   }
 
-  // Ensure 3-5 bullet points in summary if available
-  if (summaryPoints.length === 0) {
-    summaryPoints.push(`• ${nameDisplay} telah menyelesaikan pengisian asesmen pemetaan kondisi belajar.`);
-  }
+  // Construct cohesive narrative executive summary connecting answers, potentials, and attention areas
+  let summary = "";
+  const potentialsDesc = potentialsList.map(p => p.desc).join(" ");
+  const concernsDesc = concernsList.map(c => c.desc).join(" ");
 
-  const summary = summaryPoints.join("\n");
+  if (potentialsList.length > 0 && concernsList.length > 0) {
+    summary = `Berdasarkan informasi kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameDisplay} menunjukkan perkembangan belajar pada jenjang ${jenjangLabel} dengan potensi minat dan bakat yang menonjol. ${potentialsDesc} Namun di sisi lain, terdapat area yang memerlukan perhatian khusus dalam pendampingan harian, yaitu ${concernsDesc} Melalui strategi pendampingan yang memanfaatkan kegemaran dan potensi positifnya, area perhatian tersebut dapat dibimbing secara lebih efektif dan menyenangkan bagi ${nameDisplay}.`;
+  } else if (potentialsList.length > 0) {
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameDisplay} pada jenjang ${jenjangLabel} menunjukkan dorongan potensi yang sangat positif. ${potentialsDesc} Kekuatan dan minat bawaan ini menjadi fondasi utama bagi perkembangan karakter serta prestasi belajar ${nameDisplay} ke depan.`;
+  } else if (concernsList.length > 0) {
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, terdapat beberapa catatan penting mengenai kondisi belajar ${nameDisplay} pada jenjang ${jenjangLabel}. ${concernsDesc} Diperlukan bentuk pendampingan rumah yang terstruktur dan konsisten agar ${nameDisplay} mampu mengatasi tantangan tersebut secara optimal.`;
+  } else {
+    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameDisplay} telah menyelesaikan pemetaan awal kondisi belajar pada jenjang ${jenjangLabel}.`;
+  }
 
   const formattedConcerns = concernsList.length > 0
     ? concernsList.map((c, i) => `❗ ${String(i + 1).padStart(2, '0')}. ${c.title}\n${c.desc}`).join("\n\n")

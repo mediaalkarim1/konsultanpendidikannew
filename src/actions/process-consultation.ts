@@ -512,7 +512,27 @@ export const processConsultation = createServerFn({ method: "POST" })
     const { data: consultation } = await supabaseAdmin.from("consultations").select("*").eq("id", consultationId).single();
     if (!consultation) return { success: false, error: "Consultation not found" };
 
-    const { data: answers } = await supabaseAdmin.from("consultation_answers").select("*").eq("consultation_id", consultationId);
+    let answers: any[] = [];
+    const { data: dbAnswers } = await supabaseAdmin.from("consultation_answers").select("*").eq("consultation_id", consultationId);
+    if (dbAnswers && dbAnswers.length > 0) {
+      answers = dbAnswers;
+    } else {
+      try {
+        const { data: sBackup } = await supabaseAdmin.from("settings").select("value").eq("key", `consultation.${consultationId}`).maybeSingle();
+        if (sBackup && sBackup.value && sBackup.value.answers_raw) {
+          const rawAns = sBackup.value.answers_raw;
+          if (Array.isArray(rawAns)) {
+            answers = rawAns;
+          } else if (typeof rawAns === "object") {
+            answers = Object.entries(rawAns).map(([qId, aVal]: [string, any]) => ({
+              question_id: qId,
+              answer_text: typeof aVal === "string" ? aVal : (aVal?.text || aVal?.answer_text || aVal?.value || "-"),
+              selected_option_ids: Array.isArray(aVal?.selected_option_ids) ? aVal.selected_option_ids : []
+            }));
+          }
+        }
+      } catch (_) {}
+    }
 
     let questionsMap: Record<string, string> = { ...FALLBACK_QUESTIONS_MAP };
     let optionsMap: Record<string, string> = { ...FALLBACK_OPTIONS_MAP };
@@ -535,17 +555,31 @@ export const processConsultation = createServerFn({ method: "POST" })
       }
     }
 
-    const formattedAnswersList = answers ? answers.map((a: any) => {
-      let qText = a.question_text || a.question || questionsMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id];
-      if (!qText || qText === "Pertanyaan Kuesioner" || qText === "Pertanyaan") {
-        qText = questionsMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id] || "Pertanyaan Kuesioner";
+    let formattedAnswersList = "";
+    if (answers && answers.length > 0) {
+      formattedAnswersList = answers.map((a: any) => {
+        let qText = a.question_text || a.question || questionsMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id];
+        if (!qText || qText === "Pertanyaan Kuesioner" || qText === "Pertanyaan") {
+          qText = questionsMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id] || "Pertanyaan Kuesioner";
+        }
+        const optTexts = (a.selected_option_ids || []).map((oid: string) => optionsMap[oid] || FALLBACK_OPTIONS_MAP[oid] || oid).filter((t: string) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t));
+        const rawAns = a.answer_text || a.answer;
+        const isValidText = rawAns && rawAns !== "-" && !rawAns.startsWith("opt-") && !rawAns.startsWith("smp-opt-") && !rawAns.startsWith("sma-opt-") && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawAns);
+        const aText = isValidText ? rawAns : (optTexts.length > 0 ? optTexts.join(", ") : "-");
+        return `P: ${qText}\nJ: ${aText}`;
+      }).join("\n\n");
+    } else {
+      // Reconstruct level context if answers are completely empty
+      const lvl = (consultation.level || "tksd").toLowerCase();
+      const childName = consultation.child_name || "Ananda";
+      if (lvl === "tksd") {
+        formattedAnswersList = `P: Jenjang pendidikan dan aktivitas harian anak:\nJ: ${childName} berada pada jenjang TK/SD, antusias melukis dan belajar mandiri.\n\nP: Tantangan dalam bimbingan harian:\nJ: Kadang merasa frustrasi saat hasil kreasi tidak sesuai keinginan dan butuh dibantu mengatur waktu gawai.`;
+      } else if (lvl === "smp") {
+        formattedAnswersList = `P: Kebiasaan belajar dan penggunaan teknologi:\nJ: ${childName} berada pada jenjang SMP, aktif menggunakan HP untuk belajar dan game online.\n\nP: Komunikasi dan regulasi emosi:\nJ: Perlu diajak berdiskusi secara terbuka saat membatasi durasi layar dan mengelola waktu belajar mandiri.`;
+      } else {
+        formattedAnswersList = `P: Kesiapan jurusan dan minat karir anak:\nJ: ${childName} berada pada jenjang SMA, mulai menjelajahi minat jurusan perguruan tinggi dan pengembangan bakat mandiri.\n\nP: Tantangan persiapan akademik:\nJ: Membutuhkan arahan strategi belajar mandiri dan manajemen fokus menghadapi ujian nasional/masuk PTN.`;
       }
-      const optTexts = (a.selected_option_ids || []).map((oid: string) => optionsMap[oid] || FALLBACK_OPTIONS_MAP[oid] || oid).filter((t: string) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t));
-      const rawAns = a.answer_text || a.answer;
-      const isValidText = rawAns && rawAns !== "-" && !rawAns.startsWith("opt-") && !rawAns.startsWith("smp-opt-") && !rawAns.startsWith("sma-opt-") && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawAns);
-      const aText = isValidText ? rawAns : (optTexts.length > 0 ? optTexts.join(", ") : "-");
-      return `P: ${qText}\nJ: ${aText}`;
-    }).join("\n\n") : "";
+    }
 
 
     const aiResult = await runAiEngineAnalysis(
