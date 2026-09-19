@@ -620,7 +620,7 @@ export const processConsultation = createServerFn({ method: "POST" })
 
       // 3. Update consultations table status & ai_result
       await supabaseAdmin.from("consultations").update({
-        status: "Analisis AI Selesai",
+        status: "Sudah Dianalisis",
         ai_result: d.analysis || null
       }).eq("id", consultationId);
 
