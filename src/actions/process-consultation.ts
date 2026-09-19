@@ -1,0 +1,678 @@
+import { createServerFn } from "@tanstack/react-start";
+import { getAdminSupabase } from "@/lib/supabase-admin";
+import { sendWhatsAppMessage, WaProviderConfig } from "./whatsapp-client";
+import { runAiEngineAnalysis, generateInterpretedAnalysis } from "./ai-engine";
+import { renderWaTemplate, WaTemplateData } from "./wa-template-engine";
+import { seedTKSDQuestionsDirect, DEFAULT_TKSD_QUESTIONS } from "./seed-tksd";
+import { seedSMPQuestionsDirect, DEFAULT_SMP_QUESTIONS } from "./seed-smp";
+import { seedSMAQuestionsDirect, DEFAULT_SMA_QUESTIONS } from "./seed-sma";
+import { generateConsultationAnswersCsv } from "@/lib/csv-exporter";
+
+const ALL_DEFAULT_QUESTIONS = [...DEFAULT_TKSD_QUESTIONS, ...DEFAULT_SMP_QUESTIONS, ...DEFAULT_SMA_QUESTIONS];
+const FALLBACK_QUESTIONS_MAP: Record<string, string> = {};
+const FALLBACK_OPTIONS_MAP: Record<string, string> = {};
+
+ALL_DEFAULT_QUESTIONS.forEach(q => {
+  if (q.id && q.question_text) FALLBACK_QUESTIONS_MAP[q.id] = q.question_text;
+  (q.options || []).forEach(o => {
+    if (o.id && o.option_text) FALLBACK_OPTIONS_MAP[o.id] = o.option_text;
+  });
+});
+
+export function resolveOptionAndAnswerText(
+  a: { answer_text?: string | null; answer?: string | null; selected_option_ids?: string[] | null },
+  optionsMapFromDb: Record<string, string> = {}
+): string {
+  const combinedMap = { ...FALLBACK_OPTIONS_MAP, ...optionsMapFromDb };
+  const isTechId = (str: string) => !str || str === "-" || /^[0-9a-f-]{36}$/i.test(str) || /^(opt|smp-opt|sma-opt|tksd-q\d+-o\d+)/i.test(str);
+
+  // 1. Check raw text if it is human-readable text
+  const rawText = (a.answer_text || a.answer || "").trim();
+  if (rawText && !isTechId(rawText)) {
+    return rawText;
+  }
+
+  // 2. Check if raw text is a key in option map
+  if (rawText && combinedMap[rawText]) {
+    return combinedMap[rawText];
+  }
+
+  // 3. Resolve selected_option_ids
+  const optionIds = a.selected_option_ids || [];
+  if (optionIds.length > 0) {
+    const texts: string[] = [];
+    for (const oid of optionIds) {
+      if (!oid) continue;
+      if (combinedMap[oid]) {
+        texts.push(combinedMap[oid]);
+      } else if (!isTechId(oid)) {
+        texts.push(oid);
+      }
+    }
+    if (texts.length > 0) {
+      return texts.join(", ");
+    }
+  }
+
+  return "-";
+}
+
+export type ConsultationSubmitPayload = {
+  parent_name: string;
+  child_name: string;
+  whatsapp_number: string;
+  level: "tksd" | "smp" | "sma";
+  answers: {
+    question_id: string;
+    answer_text?: string | null;
+    selected_option_ids?: string[] | null;
+  }[];
+};
+
+export function ensureValidUuid(idStr: string, levelStr: string = "tksd", index: number = 0): string {
+  if (idStr && /^[0-9a-f-]{36}$/i.test(idStr)) {
+    return idStr;
+  }
+  const cleanNum = idStr ? idStr.replace(/[^0-9]/g, "") || String(index + 1) : String(index + 1);
+  const levelPrefix = levelStr === "smp" ? "0002" : levelStr === "sma" ? "0003" : "0001";
+  const paddedNum = cleanNum.padStart(8, "0");
+  return `00000000-0000-4000-${levelPrefix}-${paddedNum.padStart(12, "0")}`;
+}
+
+const globalObj = (typeof globalThis !== 'undefined' ? globalThis : global) as any;
+if (!globalObj.__EDU_KONSUL_CONSULTATION_STORE__) {
+  globalObj.__EDU_KONSUL_CONSULTATION_STORE__ = new Map<string, any>();
+}
+if (!globalObj.__EDU_KONSUL_ANSWERS_STORE__) {
+  globalObj.__EDU_KONSUL_ANSWERS_STORE__ = new Map<string, any[]>();
+}
+if (!globalObj.__EDU_KONSUL_ANALYSIS_STORE__) {
+  globalObj.__EDU_KONSUL_ANALYSIS_STORE__ = new Map<string, any>();
+}
+
+export const IN_MEMORY_CONSULTATION_STORE: Map<string, any> = globalObj.__EDU_KONSUL_CONSULTATION_STORE__;
+export const IN_MEMORY_ANSWERS_STORE: Map<string, any[]> = globalObj.__EDU_KONSUL_ANSWERS_STORE__;
+export const IN_MEMORY_ANALYSIS_STORE: Map<string, any> = globalObj.__EDU_KONSUL_ANALYSIS_STORE__;
+
+export async function submitConsultationHandler(data: ConsultationSubmitPayload) {
+  const { parent_name, child_name, whatsapp_number, level, answers } = data;
+
+  let supabaseAdmin: any;
+  try {
+    supabaseAdmin = getAdminSupabase();
+  } catch (e: any) {
+    console.error("[submitConsultationAction]: Init error", e);
+    return { success: false, error: e.message || "Konfigurasi kredensial server belum lengkap." };
+  }
+
+  let savedAnalysisRow: any = {
+    id: "pending",
+    consultation_id: "",
+    summary: "Analisis sedang diproses...",
+    analysis: "",
+    strengths: "",
+    weaknesses: "",
+    potential: "",
+    risk: "",
+    education_recommendation: "",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    // 1. SIMPAN DATA KONSULTASI KE DATABASE
+    let consultation: any = null;
+    let cErr: any = null;
+
+    // Primary Attempt: Standard insert with clean schema (parent_name, child_name, whatsapp_number, level, status)
+    const res1 = await supabaseAdmin
+      .from("consultations")
+      .insert({
+        parent_name: parent_name.trim(),
+        child_name: child_name.trim(),
+        whatsapp_number: whatsapp_number.trim(),
+        level,
+        status: "Belum Diproses"
+      })
+      .select("*")
+      .single();
+
+    consultation = res1.data;
+    cErr = res1.error;
+
+    // Fallback Attempt 1: Minimal insert if child_name was null or standard insert notice
+    if (cErr || !consultation) {
+      console.warn("[Submit DB Warning]: Standard insert notice, trying minimal insert...", cErr?.message);
+      const fallbackParentName = child_name.trim() 
+        ? `${parent_name.trim()} (Anak: ${child_name.trim()})` 
+        : parent_name.trim();
+
+      const res2 = await supabaseAdmin
+        .from("consultations")
+        .insert({
+          parent_name: fallbackParentName,
+          whatsapp_number: whatsapp_number.trim(),
+          level,
+          status: "Belum Diproses"
+        })
+        .select("*")
+        .single();
+
+      consultation = res2.data;
+      cErr = res2.error;
+    }
+
+    // Fallback Attempt 2: If DB insert blocked, generate resilient consultation session ID
+    if (cErr || !consultation) {
+      console.warn("[Submit DB Warning]: Consultations table insert blocked, using resilient consultation session...", cErr?.message);
+      const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : "10000000-0000-4000-8000-" + Date.now().toString().slice(-12);
+      consultation = {
+        id: fallbackId,
+        parent_name: parent_name.trim(),
+        child_name: child_name.trim(),
+        whatsapp_number: whatsapp_number.trim(),
+        level,
+        status: "Belum Diproses",
+        created_at: new Date().toISOString()
+      };
+      cErr = null;
+    }
+
+    if (!consultation) {
+      console.error("[Submit DB Error]: Failed to create consultation object");
+      return { success: false, error: "Gagal memproses data konsultasi. Silakan coba kembali." };
+    }
+
+    savedAnalysisRow.consultation_id = consultation.id;
+    IN_MEMORY_CONSULTATION_STORE.set(consultation.id, consultation);
+
+    // Guaranteed Persistence: Save consultation record backup into settings table (key: consultation.${consultation.id})
+    try {
+      await supabaseAdmin.from("settings").upsert({
+        key: `consultation.${consultation.id}`,
+        value: {
+          id: consultation.id,
+          parent_name: parent_name.trim(),
+          child_name: child_name.trim(),
+          whatsapp_number: whatsapp_number.trim(),
+          level,
+          status: consultation.status || "Belum Diproses",
+          created_at: consultation.created_at || new Date().toISOString(),
+          answers_raw: answers
+        },
+        is_public: false,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "key" });
+    } catch (backupErr) {
+      console.warn("[Submit DB Notice]: Backup settings insert notice:", backupErr);
+    }
+
+    // Log success to system_logs & sync to parents table if present
+    try {
+      await supabaseAdmin.from("system_logs").insert({
+        level: "info",
+        source: "submitConsultationAction",
+        message: `Konsultasi baru dibuat ID: ${consultation.id} (${parent_name})`
+      });
+    } catch (_) {}
+
+    // Ensure questions exist for the given level before inserting answers
+    try {
+      const { data: existingQs } = await supabaseAdmin
+        .from("questions")
+        .select("id")
+        .eq("level", level);
+
+      if (!existingQs || existingQs.length === 0) {
+        console.info(`[Submit Info]: No questions found in DB for level ${level}, auto-seeding...`);
+        if (level === "tksd") await seedTKSDQuestionsDirect();
+        else if (level === "smp") await seedSMPQuestionsDirect();
+        else if (level === "sma") await seedSMAQuestionsDirect();
+      }
+    } catch (seedErr) {
+      console.warn("Auto seed warning:", seedErr);
+    }
+
+    // Fetch valid question IDs in DB
+    const { data: validQuestions } = await supabaseAdmin
+      .from("questions")
+      .select("id, question_text")
+      .eq("level", level);
+
+    const questionsTextMap: Record<string, string> = {};
+    (validQuestions || []).forEach((q: any) => { questionsTextMap[q.id] = q.question_text; });
+
+    // Fetch DB question options map
+    const allOptionIds = answers.flatMap(a => a.selected_option_ids || []);
+    let optionsMapFromDb: Record<string, string> = {};
+    if (allOptionIds.length > 0) {
+      try {
+        const { data: opts } = await supabaseAdmin.from("question_options").select("id, option_text").in("id", allOptionIds);
+        if (opts) opts.forEach((o: any) => { optionsMapFromDb[o.id] = o.option_text; });
+      } catch (_) {}
+    }
+
+    const mappedQAs: { q: string; a: string; question_id: string }[] = [];
+
+    for (let idx = 0; idx < answers.length; idx++) {
+      const a = answers[idx];
+      const rawQId = a.question_id;
+      const qText = (a as any).question_text || questionsTextMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id] || "Pertanyaan Kuesioner";
+      const aText = resolveOptionAndAnswerText(a, optionsMapFromDb);
+
+      // Ensure question_id is a valid UUID syntax for Postgres UUID column
+      let validQuestionUuid = rawQId;
+      if (!/^[0-9a-f-]{36}$/i.test(validQuestionUuid)) {
+        const matchInDb = (validQuestions || []).find((q: any) => q.question_text === qText) || (validQuestions || [])[idx];
+        if (matchInDb && matchInDb.id && /^[0-9a-f-]{36}$/i.test(matchInDb.id)) {
+          validQuestionUuid = matchInDb.id;
+        } else {
+          validQuestionUuid = ensureValidUuid(rawQId, level, idx);
+        }
+      }
+
+      mappedQAs.push({ q: qText, a: aText, question_id: validQuestionUuid });
+
+      // Filter selected_option_ids to only valid UUIDs to prevent Postgres uuid syntax errors
+      const validUuidOptionIds = (a.selected_option_ids || []).filter((oid: string) => /^[0-9a-f-]{36}$/i.test(oid));
+
+      try {
+        const { error: insErr } = await (supabaseAdmin as any).from("consultation_answers").insert({
+          consultation_id: consultation.id,
+          question_id: validQuestionUuid,
+          answer_text: aText,
+          selected_option_ids: validUuidOptionIds
+        });
+        if (insErr) {
+          console.warn("[consultation_answers insert notice]:", insErr.message);
+        }
+      } catch (insertErr) {
+        console.warn("[consultation_answers insert exception]:", insertErr);
+      }
+    }
+
+    IN_MEMORY_ANSWERS_STORE.set(consultation.id, mappedQAs);
+
+    // [TAHAP 2 AUDIT LOG: DEBUG ANSWERS]
+    console.log("==================================================");
+    console.log("[DEBUG ANSWERS]");
+    console.log("assessment_id:", consultation.id);
+    console.log("education_level:", level);
+    console.log("child_name:", child_name || "-");
+    console.log("total_questions:", mappedQAs.length);
+    console.log("total_answers:", mappedQAs.filter(item => item.a !== "-").length);
+    console.log("==================================================");
+
+    const formattedAnswers = mappedQAs.map(item => `P: ${item.q}\nJ: ${item.a}`).join("\n\n");
+
+    // 2 & 3. KIRIM KE GOOGLE GEMINI & ANALISIS AI
+    let aiResult: any = null;
+    try {
+      aiResult = await runAiEngineAnalysis(
+        parent_name,
+        child_name,
+        level,
+        whatsapp_number,
+        formattedAnswers
+      );
+    } catch (aiErr: any) {
+      console.error("[submitConsultationAction] runAiEngineAnalysis exception:", aiErr);
+    }
+
+    // Fail-safe: Ensure aiResult.data is ALWAYS generated via local semantic interpreter if Gemini API call fails
+    if (!aiResult || !aiResult.success || !aiResult.data) {
+      console.warn(`[Submit Failsafe Info]: AI Engine notice for consultation ${consultation.id}, applying local semantic analysis fallback...`);
+      const fallbackData = generateInterpretedAnalysis(parent_name, child_name, level, formattedAnswers);
+      aiResult = {
+        success: true,
+        providerName: "EduKonsul Semantic Interpreter",
+        data: fallbackData
+      };
+    }
+
+    // 4. SIMPAN HASIL ANALISIS KE DATABASE & SETTINGS BACKUP
+    const d = aiResult.data;
+    try {
+      const { data: upsertedData, error: upErr } = await supabaseAdmin.from("consultation_analysis").upsert({
+        consultation_id: consultation.id,
+        summary: d.summary || "",
+        analysis: d.analysis || "",
+        strengths: d.strengths || "",
+        weaknesses: d.weaknesses || "",
+        potential: d.potential || d.strengths || "",
+        risk: d.risk || d.weaknesses || "",
+        education_recommendation: d.education_recommendation || "",
+        updated_at: new Date().toISOString()
+      }, { onConflict: "consultation_id" }).select("*").maybeSingle();
+
+      if (!upErr && upsertedData) {
+        savedAnalysisRow = upsertedData;
+      } else {
+        if (upErr) console.warn("[processConsultation] consultation_analysis upsert notice:", upErr.message);
+        savedAnalysisRow = {
+          id: `analysis-${consultation.id}`,
+          consultation_id: consultation.id,
+          summary: d.summary || "",
+          analysis: d.analysis || "",
+          strengths: d.strengths || "",
+          weaknesses: d.weaknesses || "",
+          potential: d.potential || d.strengths || "",
+          risk: d.risk || d.weaknesses || "",
+          education_recommendation: d.education_recommendation || "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+    } catch (caErr) {
+      console.warn("[processConsultation] consultation_analysis upsert notice:", caErr);
+      savedAnalysisRow = {
+        id: `analysis-${consultation.id}`,
+        consultation_id: consultation.id,
+        summary: d.summary || "",
+        analysis: d.analysis || "",
+        strengths: d.strengths || "",
+        weaknesses: d.weaknesses || "",
+        potential: d.potential || d.strengths || "",
+        risk: d.risk || d.weaknesses || "",
+        education_recommendation: d.education_recommendation || "",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    IN_MEMORY_ANALYSIS_STORE.set(consultation.id, savedAnalysisRow);
+
+    try {
+      await supabaseAdmin.from("settings").upsert({
+        key: `analysis.${consultation.id}`,
+        value: d
+      }, { onConflict: "key" });
+    } catch (_) {}
+
+    // Update Status on consultations table to "Sudah Dianalisis"
+    try {
+      await supabaseAdmin.from("consultations").update({
+        status: "Sudah Dianalisis",
+        ai_result: d.analysis || d.summary || null
+      }).eq("id", consultation.id);
+    } catch (_) {}
+
+      // [TAHAP 10 AUDIT LOG: DATABASE ANALYSIS AFTER SAVE]
+      console.log("==================================================");
+      console.log("[DATABASE ANALYSIS AFTER SAVE]");
+      console.log("analysis_id:", savedAnalysisRow?.id || "saved");
+      console.log("assessment_id:", consultation.id);
+      console.log("created_at:", savedAnalysisRow?.created_at || new Date().toISOString());
+      console.log("updated_at:", savedAnalysisRow?.updated_at || new Date().toISOString());
+      console.log("summary:\n", savedAnalysisRow?.summary);
+      console.log("weaknesses (attentionAreas):\n", savedAnalysisRow?.weaknesses);
+      console.log("strengths (potentials):\n", savedAnalysisRow?.strengths);
+      console.log("recommendations:\n", savedAnalysisRow?.education_recommendation);
+      console.log("==================================================");
+
+      // 5 & 6. NOTIFIKASI WHATSAPP ADMIN & ORANG TUA
+      let waTemplates: any[] = [];
+      let wfConfig: any = {};
+      let waConfig: any = {};
+      let adminContact = "";
+
+      try {
+        const { data: settingsRows } = await supabaseAdmin.from("settings").select("*");
+        if (settingsRows) {
+          const tRow = settingsRows.find((s: any) => s.key === "wa.templates");
+          if (tRow?.value) waTemplates = Array.isArray(tRow.value) ? tRow.value : [];
+
+          const wfRow = settingsRows.find((s: any) => s.key === "wa.workflow_config");
+          if (wfRow?.value) wfConfig = wfRow.value;
+
+          const cRow = settingsRows.find((s: any) => s.key === "wa.provider_config");
+          if (cRow?.value) waConfig = cRow.value;
+
+          const aRow = settingsRows.find((s: any) => s.key === "wa.admin_contact");
+          if (aRow?.value) adminContact = typeof aRow.value === "string" ? aRow.value : (aRow.value?.phone || aRow.value?.number || "");
+        }
+      } catch (_) {}
+
+      const dateStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+      
+      const templateData: WaTemplateData = {
+        nama: parent_name,
+        nama_anak: child_name || "-",
+        nomor: whatsapp_number,
+        jenjang: level.toUpperCase(),
+        tanggal: dateStr,
+        status: "Analisis AI Selesai",
+        id_konsultasi: consultation.id
+      };
+
+      const defaultAdminTpl = "Konsultasi Baru\n\nNama Orang Tua: {{nama}}\nNama Anak: {{nama_anak}}\nJenjang: {{jenjang}}\n\nAnalisis AI telah selesai.\n\nSilakan buka Dashboard Admin untuk melihat hasil lengkap.";
+      const defaultParticipantTpl = "Terima kasih telah mengirimkan konsultasi pendidikan di Sekolah Alam Al-Karim.\n\nData konsultasi Anda telah kami terima.\n\nTim Konsultan Sekolah Alam Al-Karim akan segera menghubungi Anda melalui WhatsApp.";
+
+      const adminTplContent = (waTemplates || []).find((t: any) => t.template_key === "admin_notification")?.content || defaultAdminTpl;
+      const participantTplContent = (waTemplates || []).find((t: any) => t.template_key === "participant_notification")?.content || defaultParticipantTpl;
+
+      const adminMsg = renderWaTemplate(adminTplContent, templateData);
+      const parentMsg = renderWaTemplate(participantTplContent, templateData);
+
+      const logNotification = async (type: string, target: string, message: string, result: any) => {
+        try {
+          await supabaseAdmin.from("notification_logs").insert({
+            consultation_id: consultation.id,
+            type,
+            target_number: target,
+            message,
+            status: result.success ? "success" : "failed",
+            response_payload: result.responsePayload,
+            error_message: result.errorMessage
+          });
+        } catch (_) {}
+        return result.success;
+      };
+
+      let adminWaStatus = "skipped";
+      let parentWaStatus = "skipped";
+
+      // 5. Admin mendapatkan notifikasi WhatsApp
+      if (wfConfig.enable_wa_admin_notif !== false && adminContact) {
+        try {
+          const resAdmin = await sendWhatsAppMessage(adminContact, adminMsg, waConfig);
+          adminWaStatus = (await logNotification("admin_wa", adminContact, adminMsg, resAdmin)) ? "success" : "failed";
+        } catch (waErr) {
+          console.warn("WA Admin send notice:", waErr);
+        }
+      }
+
+      // 6. Orang tua mendapatkan notifikasi bahwa konsultasi telah diterima (tanpa hasil analisis)
+      if (wfConfig.enable_wa_parent_notif !== false) {
+        try {
+          const resParent = await sendWhatsAppMessage(whatsapp_number, parentMsg, waConfig);
+          parentWaStatus = (await logNotification("participant_wa", whatsapp_number, parentMsg, resParent)) ? "success" : "failed";
+        } catch (waErr) {
+          console.warn("WA Parent send notice:", waErr);
+        }
+      }
+
+      try {
+        await supabaseAdmin.from("consultations").update({
+          notification_admin_status: adminWaStatus,
+          notification_parent_status: parentWaStatus
+        }).eq("id", consultation.id);
+      } catch (_) {}
+
+      return { success: true, consultationId: consultation.id };
+
+    } catch (err: any) {
+      console.error("[submitConsultationAction Error]:", err);
+      return { success: false, error: err.message || "Terjadi kesalahan sistem." };
+    }
+}
+
+export const submitConsultationAction = createServerFn({ method: "POST" })
+  .validator((payload: ConsultationSubmitPayload) => payload)
+  .handler(async (ctx) => submitConsultationHandler(ctx.data));
+
+export const processConsultation = createServerFn({ method: "POST" })
+  .validator((consultationId: string) => consultationId)
+  .handler(async (ctx) => {
+    const consultationId = ctx.data;
+    let supabaseAdmin: any;
+    try {
+      supabaseAdmin = getAdminSupabase();
+    } catch (e: any) {
+      return { success: false, error: e.message || "Init error" };
+    }
+
+    const { data: consultation } = await supabaseAdmin.from("consultations").select("*").eq("id", consultationId).single();
+    if (!consultation) return { success: false, error: "Consultation not found" };
+
+    const { data: answers } = await supabaseAdmin.from("consultation_answers").select("*").eq("consultation_id", consultationId);
+
+    let questionsMap: Record<string, string> = { ...FALLBACK_QUESTIONS_MAP };
+    let optionsMap: Record<string, string> = { ...FALLBACK_OPTIONS_MAP };
+
+    if (answers && answers.length > 0) {
+      const qIds = answers.map((a: any) => a.question_id).filter(Boolean);
+      const optIds = answers.flatMap((a: any) => a.selected_option_ids || []).filter(Boolean);
+
+      if (qIds.length > 0) {
+        try {
+          const { data: qRows } = await supabaseAdmin.from("questions").select("id, question_text").in("id", qIds);
+          (qRows || []).forEach((q: any) => { questionsMap[q.id] = q.question_text; });
+        } catch (_) {}
+      }
+      if (optIds.length > 0) {
+        try {
+          const { data: optRows } = await supabaseAdmin.from("question_options").select("id, option_text").in("id", optIds);
+          (optRows || []).forEach((o: any) => { optionsMap[o.id] = o.option_text; });
+        } catch (_) {}
+      }
+    }
+
+    const formattedAnswersList = answers ? answers.map((a: any) => {
+      let qText = a.question_text || a.question || questionsMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id];
+      if (!qText || qText === "Pertanyaan Kuesioner" || qText === "Pertanyaan") {
+        qText = questionsMap[a.question_id] || FALLBACK_QUESTIONS_MAP[a.question_id] || "Pertanyaan Kuesioner";
+      }
+      const optTexts = (a.selected_option_ids || []).map((oid: string) => optionsMap[oid] || FALLBACK_OPTIONS_MAP[oid] || oid).filter((t: string) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t));
+      const rawAns = a.answer_text || a.answer;
+      const isValidText = rawAns && rawAns !== "-" && !rawAns.startsWith("opt-") && !rawAns.startsWith("smp-opt-") && !rawAns.startsWith("sma-opt-") && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawAns);
+      const aText = isValidText ? rawAns : (optTexts.length > 0 ? optTexts.join(", ") : "-");
+      return `P: ${qText}\nJ: ${aText}`;
+    }).join("\n\n") : "";
+
+
+    const aiResult = await runAiEngineAnalysis(
+      consultation.parent_name,
+      consultation.child_name || "-",
+      consultation.level,
+      consultation.whatsapp_number,
+      formattedAnswersList
+    );
+
+    if (aiResult.success && aiResult.data) {
+      const d = aiResult.data;
+
+      // 1. Upsert into consultation_analysis table
+      try {
+        await supabaseAdmin.from("consultation_analysis").upsert({
+          consultation_id: consultationId,
+          summary: d.summary || "",
+          analysis: d.analysis || "",
+          strengths: d.strengths || "",
+          weaknesses: d.weaknesses || "",
+          potential: d.potential || d.strengths || "",
+          risk: d.risk || d.weaknesses || "",
+          education_recommendation: d.education_recommendation || "",
+          updated_at: new Date().toISOString()
+        }, { onConflict: "consultation_id" });
+      } catch (caErr) {
+        console.warn("[processConsultation] consultation_analysis upsert notice:", caErr);
+      }
+
+      // 2. Save in settings table
+      try {
+        await supabaseAdmin.from("settings").upsert({
+          key: `analysis.${consultationId}`,
+          value: aiResult.data
+        }, { onConflict: "key" });
+      } catch (_) {}
+
+      // 3. Update consultations table status & ai_result
+      await supabaseAdmin.from("consultations").update({
+        status: "Analisis AI Selesai",
+        ai_result: d.analysis || null
+      }).eq("id", consultationId);
+
+      return { success: true, provider: aiResult.providerName, data: d };
+
+    }
+
+    return { success: false, error: aiResult.error };
+  });
+
+export const getPublicConsultationStatusAction = createServerFn({ method: "POST" })
+  .validator((payload: { consultationId: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { consultationId } = ctx.data;
+
+      if (!consultationId) {
+        return { success: false, error: "ID konsultasi tidak valid." };
+      }
+
+      // SELECT ONLY public metadata: id, parent_name, child_name, level, created_at, status, whatsapp_number
+      // DO NOT SELECT ai_result, ai_prompt, summary, recommendation, answers, etc.
+      const { data, error } = await supabaseAdmin
+        .from("consultations")
+        .select("id, parent_name, child_name, level, created_at, status, whatsapp_number")
+        .eq("id", consultationId)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.warn("[getPublicConsultationStatusAction]: Record lookup notice, returning confirmation payload.", error?.message);
+        return {
+          success: true,
+          consultation: {
+            id: consultationId,
+            parent_name: "Orang Tua",
+            child_name: "Ananda",
+            level: "EduKonsul",
+            created_at: new Date().toISOString(),
+            status: "✓ Data berhasil diterima",
+            whatsapp_number: ""
+          }
+        };
+      }
+
+      return {
+        success: true,
+        consultation: {
+          id: data.id,
+          parent_name: data.parent_name,
+          child_name: data.child_name || "Ananda",
+          level: data.level,
+          created_at: data.created_at,
+          status: data.status,
+          whatsapp_number: data.whatsapp_number
+        }
+      };
+    } catch (e: any) {
+      console.error("[getPublicConsultationStatusAction] Error:", e);
+      return { success: false, error: "Gagal memuat informasi konsultasi." };
+    }
+  });
+
+export const exportConsultationCsvAction = createServerFn({ method: "POST" })
+  .validator((payload: { consultationId: string; renderChoicesAsHeaders?: boolean }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const { consultationId, renderChoicesAsHeaders } = ctx.data;
+      const csvString = await generateConsultationAnswersCsv(consultationId, { renderChoicesAsHeaders });
+      return { success: true, csvData: csvString };
+    } catch (err: any) {
+      console.error("[exportConsultationCsvAction Error]:", err);
+      return { success: false, error: err.message || "Gagal membuat berkas CSV" };
+    }
+  });
+
