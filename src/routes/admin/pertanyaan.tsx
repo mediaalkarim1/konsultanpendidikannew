@@ -4,8 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { GripVertical, Plus, Trash2, Edit2, Save, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { logActivity } from "@/actions/admin-actions";
-import { seedTKSDAction, DEFAULT_TKSD_QUESTIONS, isNewTKSDQuestions } from "@/actions/seed-tksd";
+import { 
+  logActivity,
+  saveQuestionServerAction,
+  deleteQuestionServerAction,
+  toggleQuestionActiveServerAction,
+  updateQuestionsOrderServerAction,
+  saveOptionServerAction,
+  deleteOptionServerAction
+} from "@/actions/admin-actions";
+import { seedTKSDAction, DEFAULT_TKSD_QUESTIONS, isNewTKSDQUESTIONS } from "@/actions/seed-tksd";
 import { seedSMPAction, DEFAULT_SMP_QUESTIONS, isNewSMPQuestions } from "@/actions/seed-smp";
 import { seedSMAAction, DEFAULT_SMA_QUESTIONS, isNewSMAQuestions } from "@/actions/seed-sma";
 
@@ -21,6 +29,7 @@ type QuestionOption = {
 
 type Question = {
   id: string;
+  level?: string;
   question_text: string;
   question_type: "textarea" | "text" | "single_choice" | "multi_choice";
   order_index: number;
@@ -42,16 +51,14 @@ function KelolaPertanyaanPage() {
 
   async function fetchQuestions() {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("questions")
       .select("*, question_options(*)")
       .eq("level", level)
       .order("order_index", { ascending: true });
     
-    if (error) {
-      toast.error("Gagal memuat pertanyaan");
-    } else {
-      let formatted = (data || []).map((q: any) => ({
+    if (data) {
+      let formatted = data.map((q: any) => ({
         ...q,
         options: (q.question_options || []).sort((a: any, b: any) => a.order_index - b.order_index)
       }));
@@ -86,12 +93,12 @@ function KelolaPertanyaanPage() {
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    if (!draggedId) return;
-
+  const handleDragEnd = async (dropId: string) => {
+    if (!draggedId || draggedId === dropId) return;
+    
     const dragIndex = questions.findIndex(q => q.id === draggedId);
-    if (dragIndex === dropIndex) return;
+    const dropIndex = questions.findIndex(q => q.id === dropId);
+    if (dragIndex === -1 || dropIndex === -1) return;
 
     const newQuestions = [...questions];
     const [draggedItem] = newQuestions.splice(dragIndex, 1);
@@ -102,41 +109,55 @@ function KelolaPertanyaanPage() {
     setDraggedId(null);
 
     const updates = updatedWithOrder.map((q) => ({ id: q.id, order_index: q.order_index }));
-    for (const update of updates) {
-      await supabase.from("questions").update({ order_index: update.order_index }).eq("id", update.id);
+    const res = await updateQuestionsOrderServerAction({ data: { updates, email: userEmail || "admin" } });
+    if (res.success) {
+      toast.success("Urutan berhasil diperbarui");
+    } else {
+      toast.error("Gagal memperbarui urutan: " + res.error);
+      fetchQuestions();
     }
-    toast.success("Urutan berhasil diperbarui");
-    logActivity({ data: { email: userEmail || "admin", action: "UPDATE_PERTANYAAN_ORDER", details: { level } } });
   };
 
   const toggleActive = async (id: string, current: boolean) => {
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, is_active: !current } : q));
-    await supabase.from("questions").update({ is_active: !current }).eq("id", id);
-    logActivity({ data: { email: userEmail || "admin", action: "TOGGLE_PERTANYAAN", details: { id, is_active: !current } } });
+    const nextState = !current;
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, is_active: nextState } : q));
+    const res = await toggleQuestionActiveServerAction({ data: { id, is_active: nextState, email: userEmail || "admin" } });
+    if (!res.success) {
+      toast.error("Gagal mengubah status: " + res.error);
+      fetchQuestions();
+    }
   };
 
   const deleteQuestion = async (id: string) => {
     if (!confirm("Hapus pertanyaan ini?")) return;
     setQuestions(prev => prev.filter(q => q.id !== id));
-    await supabase.from("questions").delete().eq("id", id);
-    toast.success("Pertanyaan dihapus");
-    logActivity({ data: { email: userEmail || "admin", action: "DELETE_PERTANYAAN", details: { id } } });
+    const res = await deleteQuestionServerAction({ data: { id, email: userEmail || "admin" } });
+    if (res.success) {
+      toast.success("Pertanyaan dihapus");
+    } else {
+      toast.error("Gagal menghapus: " + res.error);
+      fetchQuestions();
+    }
   };
 
   const addQuestion = async () => {
-    const newQ = {
-      level: level as any,
-      question_text: "Pertanyaan Baru",
-      question_type: "text" as any,
-      order_index: questions.length + 1,
-      is_required: true,
-      is_active: true
-    };
-    const { data, error } = await supabase.from("questions").insert(newQ).select().single();
-    if (data && !error) {
-      setQuestions([...questions, { ...data, options: [] }]);
+    const res = await saveQuestionServerAction({
+      data: {
+        level,
+        question_text: "Pertanyaan Baru",
+        question_type: "text",
+        order_index: questions.length + 1,
+        is_required: true,
+        is_active: true,
+        email: userEmail || "admin"
+      }
+    });
+
+    if (res.success && res.data) {
+      setQuestions([...questions, { ...res.data, options: [] }]);
       toast.success("Pertanyaan ditambahkan");
-      logActivity({ data: { email: userEmail || "admin", action: "ADD_PERTANYAAN", details: { level, id: data.id } } });
+    } else {
+      toast.error("Gagal menambahkan pertanyaan: " + (res.error || ""));
     }
   };
 
@@ -244,7 +265,10 @@ function KelolaPertanyaanPage() {
               draggable
               onDragStart={(e) => handleDragStart(e, q.id)}
               onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, idx)}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDragEnd(q.id);
+              }}
               className={`flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-all ${
                 draggedId === q.id ? "opacity-50 border-brand" : ""
               }`}
@@ -273,27 +297,57 @@ function QuestionEditor({ q, onUpdate, onDelete, onToggleActive, userEmail }: { 
   const hasOptions = type === "single_choice" || type === "multi_choice";
 
   const handleSave = async () => {
-    await supabase.from("questions").update({ question_text: text, question_type: type, is_required: req }).eq("id", q.id);
-    setEditing(false);
-    toast.success("Berhasil disimpan");
-    logActivity({ data: { email: userEmail, action: "EDIT_PERTANYAAN", details: { id: q.id, text } } });
-    onUpdate();
+    const res = await saveQuestionServerAction({
+      data: {
+        id: q.id,
+        level: q.level,
+        question_text: text,
+        question_type: type,
+        order_index: q.order_index,
+        is_required: req,
+        is_active: q.is_active,
+        email: userEmail || "admin"
+      }
+    });
+    if (res.success) {
+      setEditing(false);
+      toast.success("Berhasil disimpan");
+      onUpdate();
+    } else {
+      toast.error("Gagal menyimpan: " + (res.error || ""));
+    }
   };
 
   const handleAddOption = async () => {
-    await supabase.from("question_options").insert({
-      question_id: q.id,
-      option_text: "Opsi Baru",
-      order_index: q.options.length + 1
+    const res = await saveOptionServerAction({
+      data: {
+        question_id: q.id,
+        option_text: "Opsi Baru",
+        order_index: q.options.length + 1,
+        email: userEmail || "admin"
+      }
     });
-    logActivity({ data: { email: userEmail, action: "ADD_OPTION", details: { question_id: q.id } } });
-    onUpdate();
+    if (res.success) {
+      toast.success("Opsi ditambahkan");
+      onUpdate();
+    } else {
+      toast.error("Gagal menambah opsi: " + (res.error || ""));
+    }
   };
 
   const handleDeleteOption = async (optId: string) => {
-    await supabase.from("question_options").delete().eq("id", optId);
-    logActivity({ data: { email: userEmail, action: "DELETE_OPTION", details: { option_id: optId } } });
-    onUpdate();
+    const res = await deleteOptionServerAction({
+      data: {
+        id: optId,
+        email: userEmail || "admin"
+      }
+    });
+    if (res.success) {
+      toast.success("Opsi dihapus");
+      onUpdate();
+    } else {
+      toast.error("Gagal menghapus opsi: " + (res.error || ""));
+    }
   };
 
   if (!editing) {
@@ -382,9 +436,19 @@ function OptionEditor({ opt, onDelete, onUpdate, userEmail }: { opt: QuestionOpt
   const [val, setVal] = useState(opt.option_text);
   const handleBlur = async () => {
     if (val !== opt.option_text) {
-      await supabase.from("question_options").update({ option_text: val }).eq("id", opt.id);
-      logActivity({ data: { email: userEmail, action: "EDIT_OPTION", details: { option_id: opt.id, val } } });
-      onUpdate();
+      const res = await saveOptionServerAction({
+        data: {
+          id: opt.id,
+          option_text: val,
+          email: userEmail || "admin"
+        }
+      });
+      if (res.success) {
+        toast.success("Opsi diperbarui");
+        onUpdate();
+      } else {
+        toast.error("Gagal memperbarui opsi: " + (res.error || ""));
+      }
     }
   };
   return (

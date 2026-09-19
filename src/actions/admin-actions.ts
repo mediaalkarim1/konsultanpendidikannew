@@ -1247,3 +1247,142 @@ export const bulkSyncConsultationStatusesAction = createServerFn({ method: "POST
     }
   });
 
+// --- Question & Option Management Server Actions ---
+export const saveQuestionServerAction = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .validator((payload: { id?: string; level: string; question_text: string; question_type: string; is_required?: boolean; is_active?: boolean; order_index?: number; email?: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { id, level, question_text, question_type, is_required = true, is_active = true, order_index = 1, email = "admin" } = ctx.data;
+
+      if (id) {
+        const { data, error } = await (supabaseAdmin as any).from("questions").update({
+          question_text,
+          question_type,
+          is_required,
+          is_active,
+          updated_at: new Date().toISOString()
+        }).eq("id", id).select().single();
+
+        if (error) throw error;
+        await logActivityInternal(email, "UPDATE_QUESTION", { id, question_text });
+        return { success: true, data };
+      } else {
+        const { data, error } = await (supabaseAdmin as any).from("questions").insert({
+          level,
+          question_text,
+          question_type,
+          is_required,
+          is_active,
+          order_index
+        }).select().single();
+
+        if (error) throw error;
+        await logActivityInternal(email, "ADD_QUESTION", { level, question_text });
+        return { success: true, data };
+      }
+    } catch (e: any) {
+      console.error("[saveQuestionServerAction error]:", e);
+      return { success: false, error: e.message };
+    }
+  });
+
+export const deleteQuestionServerAction = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .validator((payload: { id: string; email?: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { id, email = "admin" } = ctx.data;
+      const { error } = await (supabaseAdmin as any).from("questions").delete().eq("id", id);
+      if (error) throw error;
+
+      await logActivityInternal(email, "DELETE_QUESTION", { id });
+      return { success: true };
+    } catch (e: any) {
+      console.error("[deleteQuestionServerAction error]:", e);
+      return { success: false, error: e.message };
+    }
+  });
+
+export const toggleQuestionActiveServerAction = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .validator((payload: { id: string; is_active: boolean; email?: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { id, is_active, email = "admin" } = ctx.data;
+      const { error } = await (supabaseAdmin as any).from("questions").update({ is_active, updated_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+
+      await logActivityInternal(email, "TOGGLE_QUESTION_ACTIVE", { id, is_active });
+      return { success: true };
+    } catch (e: any) {
+      console.error("[toggleQuestionActiveServerAction error]:", e);
+      return { success: false, error: e.message };
+    }
+  });
+
+export const updateQuestionsOrderServerAction = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .validator((payload: { updates: Array<{ id: string; order_index: number }>; email?: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { updates, email = "admin" } = ctx.data;
+      for (const item of updates) {
+        await (supabaseAdmin as any).from("questions").update({ order_index: item.order_index }).eq("id", item.id);
+      }
+      await logActivityInternal(email, "REORDER_QUESTIONS", { count: updates.length });
+      return { success: true };
+    } catch (e: any) {
+      console.error("[updateQuestionsOrderServerAction error]:", e);
+      return { success: false, error: e.message };
+    }
+  });
+
+export const saveOptionServerAction = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .validator((payload: { id?: string; question_id: string; option_text: string; order_index?: number; email?: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { id, question_id, option_text, order_index = 1, email = "admin" } = ctx.data;
+
+      if (id) {
+        const { data, error } = await (supabaseAdmin as any).from("question_options").update({ option_text }).eq("id", id).select().single();
+        if (error) throw error;
+        await logActivityInternal(email, "UPDATE_OPTION", { id, option_text });
+        return { success: true, data };
+      } else {
+        const { data, error } = await (supabaseAdmin as any).from("question_options").insert({ question_id, option_text, order_index }).select().single();
+        if (error) throw error;
+        await logActivityInternal(email, "ADD_OPTION", { question_id, option_text });
+        return { success: true, data };
+      }
+    } catch (e: any) {
+      console.error("[saveOptionServerAction error]:", e);
+      return { success: false, error: e.message };
+    }
+  });
+
+export const deleteOptionServerAction = createServerFn({ method: "POST" })
+  .middleware([requireAdmin])
+  .validator((payload: { id: string; email?: string }) => payload)
+  .handler(async (ctx) => {
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const { id, email = "admin" } = ctx.data;
+      const { error } = await (supabaseAdmin as any).from("question_options").delete().eq("id", id);
+      if (error) throw error;
+
+      await logActivityInternal(email, "DELETE_OPTION", { id });
+      return { success: true };
+    } catch (e: any) {
+      console.error("[deleteOptionServerAction error]:", e);
+      return { success: false, error: e.message };
+    }
+  });
+
+
