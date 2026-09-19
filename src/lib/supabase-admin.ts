@@ -10,8 +10,15 @@ export function getAdminSupabase() {
   const DEFAULT_KEY = "sb_publishable_JDRo4B86mh4m2GxUNBOpWw_VEjzqcU1";
   const DEFAULT_SERVICE_KEY = (typeof process !== 'undefined' && (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.SUPABASE_SERVICE_KEY || process.env?.VITE_SUPABASE_SERVICE_ROLE_KEY)) || (["sb_secret", "DB97atj8YHtCguIYkGu_yg_k5TPgAVG"].join("_"));
 
-  const supabaseUrl = (typeof process !== 'undefined' && (process.env?.VITE_SUPABASE_URL || process.env?.SUPABASE_URL)) || DEFAULT_URL;
-  const supabaseServiceKey = (typeof process !== 'undefined' && (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.SUPABASE_SERVICE_KEY || process.env?.VITE_SUPABASE_SERVICE_ROLE_KEY)) || DEFAULT_SERVICE_KEY;
+  let supabaseUrl = (typeof process !== 'undefined' && (process.env?.VITE_SUPABASE_URL || process.env?.SUPABASE_URL)) || DEFAULT_URL;
+  if (!supabaseUrl || supabaseUrl.includes("muyugntbzspnincoaekj")) {
+    supabaseUrl = DEFAULT_URL;
+  }
+
+  let supabaseServiceKey = (typeof process !== 'undefined' && (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.SUPABASE_SERVICE_KEY || process.env?.VITE_SUPABASE_SERVICE_ROLE_KEY)) || DEFAULT_SERVICE_KEY;
+  if (!supabaseServiceKey || supabaseServiceKey.includes("KHzSJnooFPXSFmwcL8yvpg")) {
+    supabaseServiceKey = DEFAULT_SERVICE_KEY;
+  }
 
   return createClient<Database>(supabaseUrl, supabaseServiceKey, {
     global: {

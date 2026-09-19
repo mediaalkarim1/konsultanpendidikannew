@@ -40,8 +40,15 @@ function createSupabaseAdminClient() {
   const DEFAULT_URL = "https://oxepappuzbeiogghnkjr.supabase.co";
   const DEFAULT_KEY = "sb_publishable_JDRo4B86mh4m2GxUNBOpWw_VEjzqcU1";
 
-  const SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', 'SUPABASE_URL', DEFAULT_URL);
-  const SUPABASE_SERVICE_ROLE_KEY = getEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', DEFAULT_KEY);
+  let SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL', 'SUPABASE_URL', DEFAULT_URL);
+  if (!SUPABASE_URL || SUPABASE_URL.includes("muyugntbzspnincoaekj")) {
+    SUPABASE_URL = DEFAULT_URL;
+  }
+
+  let SUPABASE_SERVICE_ROLE_KEY = getEnvVar('VITE_SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', DEFAULT_KEY);
+  if (!SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY.includes("KHzSJnooFPXSFmwcL8yvpg")) {
+    SUPABASE_SERVICE_ROLE_KEY = DEFAULT_KEY;
+  }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     global: {
