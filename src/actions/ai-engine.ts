@@ -617,6 +617,23 @@ function formatDeepAreaDescription(childName: string, rawA: string, title: strin
   const lowerA = cleanAnswer.toLowerCase();
   const pronoun = index % 2 === 0 ? nameDisplay : "ia";
 
+  if (category === "positive") {
+    if (lowerA.includes("gambar") || lowerA.includes("warna") || lowerA.includes("lukis") || lowerA.includes("seni") || lowerA.includes("kreatif")) {
+      return `${pronoun} memiliki ketertarikan tinggi dalam menyalurkan ide dan imajinasinya melalui karya visual (${cleanAnswer}). Kebiasaan positif ini menjadi modal berharga untuk mengasah daya cipta, kerapian berkarya, serta rasa percaya diri.`;
+    } else if (lowerA.includes("bertanya") || lowerA.includes("orang tua") || lowerA.includes("diskusi")) {
+      return `Saat menghadapi tantangan atau kendala baru, ${pronoun} terbiasa terbuka dan berdiskusi langsung dengan orang tua (${cleanAnswer}). Sikap ini mencerminkan ikatan emosional yang hangat serta kepercayaan yang kuat di lingkungan rumah.`;
+    } else if (lowerA.includes("1–2 jam") || lowerA.includes("1-2 jam") || lowerA.includes("kurang 1 jam") || lowerA.includes("didampingi")) {
+      return `${pronoun} mampu mengelola durasi penggunaan gawai secara disiplin sesuai kesepakatan harian (${cleanAnswer}). Kedisiplinan ini menunjukkan awal kontrol emosi dan fleksibilitas yang sangat baik saat bertransisi ke kegiatan harian.`;
+    } else if (lowerA.includes("karakter") || lowerA.includes("agama") || lowerA.includes("bahagia") || lowerA.includes("adab") || lowerA.includes("akhlak")) {
+      return `${pronoun} memiliki fondasi karakter dan nilai spiritual yang menjadi pijakan positif dalam kesehariannya (${cleanAnswer}). Orientasi ini membentuk kepribadian yang santun, penuh empati, serta merasa bahagia dalam proses belajar.`;
+    } else if (lowerA.includes("sering") || lowerA.includes("ekstrakurikuler") || lowerA.includes("olahraga") || lowerA.includes("fisik")) {
+      return `${pronoun} menunjukkan antusiasme yang kuat dalam mengikuti aktivitas positif di luar jam belajar (${cleanAnswer}). Keaktifan ini mengasah stamina, keterampilan berinteraksi sosial, serta jiwa kepemimpinan anak.`;
+    } else {
+      return `${pronoun} memperlihatkan potensi positif yang baik dalam aspek ${title.toLowerCase()} (${cleanAnswer}). Modal kebiasaan ini memberikan dorongan rasa percaya diri dan antusiasme tinggi dalam proses belajarnya.`;
+    }
+  }
+
+  // Concern / Attention Area descriptions
   if (lowerA.includes("gadget") || lowerA.includes("gawai") || lowerA.includes("hp") || lowerA.includes("screen time") || lowerA.includes("layar")) {
     return `${pronoun} memperlihatkan penggunaan gawai yang cukup dominan saat mengisi waktu luang di rumah (${cleanAnswer}). Pendampingan berfokus pada penyediaan variasi kegiatan alternatif serta pembiasaan transisi yang jelas saat durasi layar berakhir.`;
   } else if (lowerA.includes("mudah menyerah") || lowerA.includes("frustrasi") || lowerA.includes("kesulitan")) {
@@ -626,7 +643,7 @@ function formatDeepAreaDescription(childName: string, rawA: string, title: strin
   } else if (lowerA.includes("pemalu") || lowerA.includes("sulit berteman") || lowerA.includes("adaptasi")) {
     return `Ketika berada di lingkungan baru, ${pronoun} membutuhkan waktu ekstra untuk mengamati sebelum berani membuka interaksi (${cleanAnswer}). Hal ini mencerminkan kehati-hatian alami yang dapat dikembangkan menjadi kepercayaan diri sosial melalui dukungan lingkungan yang ramah.`;
   } else {
-    return `Jawaban orang tua menggambarkan kondisi ${cleanAnswer} dalam keseharian ${pronoun}. Memahami pola ini membantu orang tua mengarahkan pendampingan yang selaras dengan karakter anak untuk menguatkan kedisiplinan dan kesadaran diri.`;
+    return `Kondisi ${cleanAnswer} menjadi perhatian penting dalam keseharian ${pronoun}. Memahami pola ini membantu orang tua mengarahkan pendampingan yang selaras dengan karakter anak untuk menguatkan kedisiplinan dan kesadaran diri.`;
   }
 }
 
