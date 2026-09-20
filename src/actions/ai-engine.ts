@@ -592,12 +592,13 @@ const SEMANTIC_MAPPINGS: SemanticMapping[] = [
 ];
 
 /**
- * Helper to transform short raw parent answers into complete, natural sentences with pronoun variation.
+ * Helper to transform raw parent answers into deep, 3-5 sentence professional descriptions
+ * answering context, daily patterns, educational meaning, why it matters, and skills to develop.
  */
-function formatNaturalDescription(childName: string, rawA: string, title: string, category: "positive" | "concern", index: number = 0): string {
+function formatDeepAreaDescription(childName: string, rawA: string, title: string, category: "positive" | "concern", index: number = 0): string {
   const normA = rawA.trim().replace(/\.$/, "");
+  const nameDisplay = (childName && childName !== "-") ? childName : "Ananda";
   
-  // Strip ALL occurrences of child name or generic pronouns from raw answer to prevent "Ananda Adiba" or "Adiba Adiba"
   let cleanAnswer = normA;
   if (childName && childName !== "-" && childName.trim().length > 1) {
     const escaped = childName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -606,78 +607,50 @@ function formatNaturalDescription(childName: string, rawA: string, title: string
   cleanAnswer = cleanAnswer.replace(/^(ananda|ia|anak)\s+/i, "").trim();
   const lowerA = cleanAnswer.toLowerCase();
 
-  // Alternate pronouns naturally: Ananda, Ia
-  const pronoun = index % 2 === 0 ? "Ananda" : "Ia";
+  const openers = [
+    "Dalam keseharian di rumah, ",
+    "Hal yang cukup menonjol dari penyampaian orang tua adalah ",
+    "Pada situasi tertentu, terlihat bahwa ",
+    "Jawaban ini memberikan gambaran bahwa ",
+    "Salah satu pola penting yang perlu diperhatikan adalah ",
+    "Dari beberapa jawaban yang saling berkaitan, "
+  ];
+  const opener = openers[index % openers.length];
+  const pronoun = index % 2 === 0 ? nameDisplay : "ia";
 
-  if (lowerA.includes("menonton tv") || lowerA.includes("nonton tv")) {
-    return `${pronoun} sering mengisi waktu luangnya dengan menonton tayangan TV di rumah.`;
-  }
-  if (lowerA.includes("hampir semua masih dibantu")) {
-    return `Saat ini sebagian besar kebutuhan harian masih dibantu oleh orang tua, yang menjadi peluang baik untuk melatih kemandirian diri secara bertahap.`;
-  }
-  if (lowerA.includes("sulit dialihkan")) {
-    return `${pronoun} terkadang merasa kesulitan saat diminta mengalihkan perhatian dari gawai ke aktivitas harian lainnya.`;
-  }
-  if (lowerA.includes("cenderung pemalu") || lowerA.includes("pemalu")) {
-    return `${pronoun} cenderung pemalu saat berinteraksi di lingkungan baru, sehingga memerlukan dorongan kepercayaan diri secara bertahap.`;
-  }
-  if (lowerA.includes("mudah marah")) {
-    return `${pronoun} memperlihatkan dinamika emosi seperti mudah marah saat beralih aktivitas atau mengalami rasa lelah.`;
-  }
-  if (lowerA.includes("hampir setiap waktu luang")) {
-    return `Penggunaan gawai yang dilakukan hampir setiap waktu luang memerlukan kesepakatan batas waktu layar yang sehat dan seimbang di rumah.`;
-  }
-  if (lowerA.includes("langsung bekerja")) {
-    return `${pronoun} memiliki ketertarikan untuk langsung memasuki dunia kerja setelah kelulusan, yang menunjukkan orientasi mandiri dan praktis.`;
-  }
-  if (lowerA.includes("mulai mengetahui")) {
-    return `${pronoun} mulai menyadari dan mengenali potensi serta kelebihan dirinya, yang menjadi modal penting dalam menentukan arah pendidikan.`;
-  }
-  if (lowerA.includes("cukup sering") || lowerA.includes("sangat sering")) {
-    return `${pronoun} aktif berpartisipasi dalam berbagai kegiatan di luar kelas untuk memperluas pengalaman dan jejaring sosialnya.`;
-  }
-  if (lowerA.includes("public speaking") || lowerA.includes("leadership") || lowerA.includes("problem solving")) {
-    return `${pronoun} menunjukkan potensi dan ketertarikan dalam mengasah soft skill utama seperti komunikasi, kepemimpinan, dan pemecahan masalah.`;
-  }
-  if (lowerA.includes("menunggu arahan")) {
-    return `${pronoun} masih cenderung menunggu arahan ketika menghadapi hambatan baru, sehingga memerlukan dorongan inisiatif secara bertahap.`;
-  }
-  if (lowerA.includes("bazar") || lowerA.includes("kewirausahaan")) {
-    return `${pronoun} sudah memiliki pengalaman dalam proyek kewirausahaan atau bazar, yang melatih pemikiran kreatif dan jiwa usaha sejak dini.`;
-  }
-  if (lowerA.includes("pembelajaran berbasis proyek")) {
-    return `${pronoun} menyukai metode pembelajaran berbasis proyek dan pengembangan minat yang relevan dengan kesiapan masa depan.`;
-  }
-  if (lowerA.includes("lebih dari 2 jam") || lowerA.includes("lebih dari 3 jam") || lowerA.includes("4–6 jam") || lowerA.includes("4-6 jam")) {
-    return `Penggunaan perangkat digital dengan durasi ${cleanAnswer} harian memerlukan kesepakatan batas waktu layar yang sehat dan seimbang.`;
-  }
-  if (lowerA.includes("menangis atau marah") || lowerA.includes("menangis") || lowerA.includes("marah")) {
-    return `${pronoun} terkadang mengekspresikan dinamika emosi seperti ${cleanAnswer} saat harus beralih aktivitas atau menghadapi rasa lelah.`;
-  }
-  if (lowerA.includes("mudah menyerah")) {
-    return `Kecenderungan ${cleanAnswer} ketika menghadapi tugas yang dirasa sulit memerlukan dorongan ketahanan belajar secara bertahap.`;
-  }
-  if (lowerA.includes("masih dibantu orang tua") || lowerA.includes("hampir semua masih dibantu")) {
-    return `Saat ini sebagian besar kebutuhan harian masih dibantu oleh orang tua, yang menjadi peluang baik untuk melatih kemandirian diri secara bertahap.`;
-  }
-  if (lowerA.includes("sulit fokus") || lowerA.includes("terlalu aktif") || lowerA.includes("pemalu")) {
-    return `${pronoun} memperlihatkan dinamika seperti ${cleanAnswer} yang memerlukan perhatian serta pengarahan positif secara konsisten.`;
-  }
-  if (lowerA.includes("bermain bersama teman")) {
-    return `${pronoun} senang mengisi waktu dengan ${cleanAnswer}, yang mencerminkan ketertarikan interaksi sosial positif bersama teman sebaya.`;
-  }
-  if (lowerA.includes("mandiri") && lowerA.includes("percaya diri")) {
-    return `${pronoun} memperlihatkan fondasi karakter positif seperti ${cleanAnswer} dalam beberapa situasi harian.`;
-  }
-  if (lowerA.includes("bahagia belajar") || lowerA.includes("berbahasa inggris") || lowerA.includes("hafal al-qur'an")) {
-    return `${pronoun} memiliki potensi dan kebiasaan baik yaitu ${cleanAnswer}, yang menjadi aset penting dalam perkembangan pendidikannya.`;
-  }
-  if (lowerA.includes("membuat karya") || lowerA.includes("proyek")) {
-    return `${pronoun} menunjukkan minat tinggi dalam ${cleanAnswer}, yang menjadi sarana ekspresi dan kreativitas positif.`;
+  let paragraph = "";
+  let temuan = cleanAnswer;
+  let analisis = "";
+  let arahPengembangan = "";
+
+  if (lowerA.includes("gadget") || lowerA.includes("gawai") || lowerA.includes("hp") || lowerA.includes("screen time") || lowerA.includes("layar")) {
+    paragraph = `${opener}aktivitas penggunaan gawai menjadi salah satu pilihan yang cukup dominan dalam mengisi waktu luang ${pronoun}. Kondisi ini menunjukkan bahwa gawai kemungkinan telah menjadi pilihan aktivitas yang mudah dan menarik baginya ketika sedang tidak ada kegiatan terstruktur. Hal yang perlu diperhatikan bukan sekadar seberapa sering gawai digunakan, melainkan apakah ${pronoun} sudah memiliki cukup banyak pilihan aktivitas lain yang tak kalah menarik di luar layar. Oleh karena itu, pengembangan yang dibutuhkan bukan semata-mata membatasi gawai, melainkan membantunya membangun kebiasaan memilih aktivitas alternatif dan mengelola waktu luangnya dengan lebih seimbang.`;
+    temuan = `Penggunaan perangkat digital (${cleanAnswer}) mendominasi aktivitas waktu luang.`;
+    analisis = `Keterikatan pada layar mencerminkan perlunya variasi kegiatan pengganti yang merangsang keaktifan fisik dan interaksi langsung. Kebutuhan transisi saat durasi layar berakhir menjadi fokus pendampingan utama.`;
+    arahPengembangan = `Mengembangkan fleksibilitas transisi antaraktivitas dan melatih kebiasaan memilih kegiatan positif di luar gawai.`;
+  } else if (lowerA.includes("mudah menyerah") || lowerA.includes("frustrasi") || lowerA.includes("kesulitan")) {
+    paragraph = `${opener}saat menghadapi tugas atau hambatan yang dirasa sulit, ${pronoun} memperlihatkan kecenderungan untuk ragu dan cepat menyudahi usahanya. Kebiasaan ini memberi gambaran bahwa ketahanan belajar (resiliensi) dan toleransi terhadap rasa lelah belum terbentuk secara kokoh. Penting bagi orang tua untuk mendampingi proses ini agar ${pronoun} memandang tantangan bukan sebagai beban penolakan, melainkan bagian wajar dari proses penguasaan keterampilan baru. Pendampingan terarah akan membantunya mengurai masalah besar menjadi tahapan yang mampu diselesaikan secara bertahap.`;
+    temuan = `Muncul sikap ${cleanAnswer} ketika mengerjakan tugas yang membutuhkan ketekunan ekstra.`;
+    analisis = `Reaksi ragu atau mundur saat tugas terasa sukar menandakan pentingnya bimbingan emosi saat anak mengalami kebingungan atau kegagalan awal.`;
+    arahPengembangan = `Membangun daya tahan belajar (resiliensi) dan melatih kemampuan memecahkan masalah secara mandiri.`;
+  } else if (lowerA.includes("masih dibantu") || lowerA.includes("belum mandiri") || lowerA.includes("diarahkan") || lowerA.includes("kurang disiplin")) {
+    paragraph = `${opener}dalam menjalankan aktivitas dan rutinitas harian, ${pronoun} masih mengandalkan dorongan atau pengingat langsung dari orang tua. Pola ini menandakan bahwa pembentukan kedisiplinan dan tanggung jawab mandiri masih membutuhkan proses pembiasaan yang lebih terstruktur. Apabila pendampingan dilakukan secara konsisten, ${pronoun} akan mulai menginternalisasi aturan harian tanpa merasa tertekan. Tujuan utama dari area ini adalah memberikan kesempatan kepada anak untuk belajar mengatur kebutuhan dirinya sendiri secara bertahap.`;
+    temuan = `Rutinitas harian masih bergantung pada bimbingan atau pengingat orang tua (${cleanAnswer}).`;
+    analisis = `Ketergantungan pada pengarahan luar adalah proses wajar yang perlu ditransisikan menuju dorongan inisiatif internal anak.`;
+    arahPengembangan = `Melatih kemandirian rutinitas harian dan membangun rasa tanggung jawab atas kebutuhan diri sendiri.`;
+  } else if (lowerA.includes("pemalu") || lowerA.includes("sulit berteman") || lowerA.includes("adaptasi")) {
+    paragraph = `${opener}ketika berada di lingkungan atau situasi baru, ${pronoun} cenderung membutuhkan waktu ekstra untuk mengamati sebelum berani membuka interaksi. Kebutuhan waktu adaptasi ini sebaiknya tidak langsung dipandang sebagai kendala sosialisasi, melainkan kehati-hatian alami dalam proses penyesuaian diri. Memberikan rasa aman dan ruang yang ramah akan membuat ${pronoun} lebih siap berpartisipasi tanpa rasa cemas. Kemampuan yang sedang dipupuk di sini adalah rasa percaya diri sosial dalam suasana yang mendukung.`;
+    temuan = `${pronoun} memerlukan waktu adaptasi ekstra di lingkungan atau situasi baru (${cleanAnswer}).`;
+    analisis = `Kebutuhan jeda pengamatan sebelum berinteraksi adalah bentuk mekanisme penyesuaian emosi sosial yang wajar.`;
+    arahPengembangan = `Memupuk keberanian dan kenyamanan berinteraksi sosial dalam kelompok kecil atau lingkungan baru.`;
+  } else {
+    paragraph = `${opener}kondisi ${cleanAnswer} memberikan gambaran mendalam mengenai kebiasaan tumbuh kembang yang sedang dihayati oleh ${pronoun}. Memahami pola ini membantu orang tua mengarahkan gaya pendampingan yang selaras dengan ritme dan karakter alamiah anak. Perhatian pada aspek ini memastikan bahwa kebiasaan positif semakin menguat, sementara kendala kecil dapat diantisipasi sejak dini. Kemampuan utama yang terus dilatih adalah kedisiplinan diri, komunikasi terbuka, serta regulasi emosi di rumah.`;
+    temuan = `Orang tua mengamati kondisi: ${cleanAnswer}.`;
+    analisis = `Gambaran perilaku ini menjadi dasar penting bagi orang tua dalam menyusun ritme pendampingan yang responsif di rumah.`;
+    arahPengembangan = `Melatih konsistensi kebiasaan belajar dan menguatkan kemandirian diri anak.`;
   }
 
-  if (cleanAnswer.length === 0) return `${pronoun} menunjukkan kebiasaan belajar dan tumbuh kembang yang baik.`;
-  return `${pronoun} ${cleanAnswer.charAt(0).toLowerCase() + cleanAnswer.slice(1)}.`;
+  return `${paragraph}\n\nTemuan:\n${temuan}\n\nAnalisis:\n${analisis}\n\nArah Pengembangan:\n${arahPengembangan}`;
 }
 
 /**
@@ -816,7 +789,7 @@ export function generateInterpretedAnalysis(parentName: string, childName: strin
     if (seenTitles.has(interpreted.title)) continue;
     seenTitles.add(interpreted.title);
 
-    const desc = formatNaturalDescription(nameDisplay, item.a, interpreted.title, interpreted.category, idx);
+    const desc = formatDeepAreaDescription(nameDisplay, item.a, interpreted.title, interpreted.category, idx);
 
     if (interpreted.category === "concern") {
       concernsList.push({ title: interpreted.title, desc });
