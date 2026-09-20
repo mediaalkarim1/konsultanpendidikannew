@@ -14,12 +14,12 @@ YANG DIUBAH HANYA KUALITAS ANALISISNYA. Jangan membuat laporan yang terasa seper
 
 2. AREA YANG PERLU DIPERHATIKAN — ATURAN KHUSUS (TEPAT 5 AREA):
    a) Jumlah Area: Hasilkan TEPAT 5 AREA PERHATIAN (01 s.d. 05) yang relevan berbasis pola jawaban orang tua.
-   b) Judul Area: Padat, jernih, dan tidak menggunakan kata generik atau label negatif (contoh: "Fokus mudah teralih saat beraktivitas", "Kemandirian dalam menyelesaikan tugas masih perlu diperkuat", "Membutuhkan waktu untuk beradaptasi dalam bersosialisasi", "Rasa percaya diri yang masih dapat dikembangkan", "Membiasakan diri dengan tantangan dan mencari solusi").
-   c) Deskripsi: 2–3 kalimat kontekstual yang menguraikan konteks keseharian, makna pendidikan, dan kemampuan yang sedang dikembangkan dengan variasi kalimat pembuka alami.
+   b) Judul Area: Padat, jernih, dan tidak menggunakan kata generik atau label negatif.
+   c) Deskripsi: 2–3 kalimat padat & mendalam yang menguraikan pengamatan fakta, makna pendidikan, dan fokus pendampingan tanpa sub-header tambahan.
 
 3. MINAT & POTENSI UNGGULAN (TEPAT 3 POTENSI):
    a) Jumlah Potensi: Hasilkan TEPAT 3 POTENSI UNGGULAN (POTENSI 01 s.d. 03) yang menyoroti kekuatan sejati atau karakter positif anak.
-   b) Deskripsi: 1–2 kalimat apresiatif yang menguatkan modal perkembangan anak.
+   b) Deskripsi: 1–2 kalimat apresiatif dan fokus yang menguatkan modal perkembangan anak.
 
 4. REKOMENDASI PENDAMPINGAN RUMAH / ACTION PLAN (TEPAT 6 ACTION):
    a) Jumlah Action Plan: Hasilkan TEPAT 6 ACTION PLAN (ACTION 01 s.d. 06) yang terhubung langsung dengan temuan area perhatian & potensi anak.
@@ -44,14 +44,14 @@ Berikan keluaran dalam format JSON valid berikut (tanpa markdown codeblock):
   "attention_areas": [
     {
       "title": "Judul Pola Area Perhatian (Tepat 5 Area)",
-      "description": "Deskripsi 2-3 kalimat yang membedakan fakta jawaban orang tua dan interpretasi maknanya secara empatik tanpa label negatif.",
+      "description": "Deskripsi 2-3 kalimat padat yang menguraikan fakta pengamatan dan fokus pendampingan tanpa label negatif.",
       "evidence": "Bukti / ringkasan jawaban orang tua"
     }
   ],
   "potentials": [
     {
       "title": "Judul Kekuatan & Minat Unggulan (Tepat 3 Potensi)",
-      "description": "Penjelasan kekuatan sejati, karakter positif, atau modal perkembangan anak yang terbukti dari jawaban orang tua.",
+      "description": "Penjelasan 1-2 kalimat fokus tentang kekuatan sejati atau karakter positif anak.",
       "evidence": "Bukti / kutipan jawaban orang tua"
     }
   ],

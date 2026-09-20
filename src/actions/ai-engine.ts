@@ -615,51 +615,19 @@ function formatDeepAreaDescription(childName: string, rawA: string, title: strin
   }
   cleanAnswer = cleanAnswer.replace(/^(ananda|ia|anak)\s+/i, "").trim();
   const lowerA = cleanAnswer.toLowerCase();
-
-  const openers = [
-    "Dalam keseharian di rumah, ",
-    "Hal yang cukup menonjol dari penyampaian orang tua adalah ",
-    "Pada situasi tertentu, terlihat bahwa ",
-    "Jawaban ini memberikan gambaran bahwa ",
-    "Salah satu pola penting yang perlu diperhatikan adalah ",
-    "Dari beberapa jawaban yang saling berkaitan, "
-  ];
-  const opener = openers[index % openers.length];
   const pronoun = index % 2 === 0 ? nameDisplay : "ia";
 
-  let paragraph = "";
-  let temuan = cleanAnswer;
-  let analisis = "";
-  let arahPengembangan = "";
-
   if (lowerA.includes("gadget") || lowerA.includes("gawai") || lowerA.includes("hp") || lowerA.includes("screen time") || lowerA.includes("layar")) {
-    paragraph = `${opener}aktivitas penggunaan gawai menjadi salah satu pilihan yang cukup dominan dalam mengisi waktu luang ${pronoun}. Kondisi ini menunjukkan bahwa gawai kemungkinan telah menjadi pilihan aktivitas yang mudah dan menarik baginya ketika sedang tidak ada kegiatan terstruktur. Hal yang perlu diperhatikan bukan sekadar seberapa sering gawai digunakan, melainkan apakah ${pronoun} sudah memiliki cukup banyak pilihan aktivitas lain yang tak kalah menarik di luar layar. Oleh karena itu, pengembangan yang dibutuhkan bukan semata-mata membatasi gawai, melainkan membantunya membangun kebiasaan memilih aktivitas alternatif dan mengelola waktu luangnya dengan lebih seimbang.`;
-    temuan = `Penggunaan perangkat digital (${cleanAnswer}) mendominasi aktivitas waktu luang.`;
-    analisis = `Keterikatan pada layar mencerminkan perlunya variasi kegiatan pengganti yang merangsang keaktifan fisik dan interaksi langsung. Kebutuhan transisi saat durasi layar berakhir menjadi fokus pendampingan utama.`;
-    arahPengembangan = `Mengembangkan fleksibilitas transisi antaraktivitas dan melatih kebiasaan memilih kegiatan positif di luar gawai.`;
+    return `${pronoun} memperlihatkan penggunaan gawai yang cukup dominan saat mengisi waktu luang di rumah (${cleanAnswer}). Pendampingan berfokus pada penyediaan variasi kegiatan alternatif serta pembiasaan transisi yang jelas saat durasi layar berakhir.`;
   } else if (lowerA.includes("mudah menyerah") || lowerA.includes("frustrasi") || lowerA.includes("kesulitan")) {
-    paragraph = `${opener}saat menghadapi tugas atau hambatan yang dirasa sulit, ${pronoun} memperlihatkan kecenderungan untuk ragu dan cepat menyudahi usahanya. Kebiasaan ini memberi gambaran bahwa ketahanan belajar (resiliensi) dan toleransi terhadap rasa lelah belum terbentuk secara kokoh. Penting bagi orang tua untuk mendampingi proses ini agar ${pronoun} memandang tantangan bukan sebagai beban penolakan, melainkan bagian wajar dari proses penguasaan keterampilan baru. Pendampingan terarah akan membantunya mengurai masalah besar menjadi tahapan yang mampu diselesaikan secara bertahap.`;
-    temuan = `Muncul sikap ${cleanAnswer} ketika mengerjakan tugas yang membutuhkan ketekunan ekstra.`;
-    analisis = `Reaksi ragu atau mundur saat tugas terasa sukar menandakan pentingnya bimbingan emosi saat anak mengalami kebingungan atau kegagalan awal.`;
-    arahPengembangan = `Membangun daya tahan belajar (resiliensi) dan melatih kemampuan memecahkan masalah secara mandiri.`;
+    return `Saat menghadapi tugas yang terasa sulit, ${pronoun} cenderung ragu dan menyudahi usahanya lebih awal (${cleanAnswer}). Bimbingan rumah berfokus pada pembagian tugas menjadi tahapan kecil untuk membangun ketahanan belajar secara bertahap.`;
   } else if (lowerA.includes("masih dibantu") || lowerA.includes("belum mandiri") || lowerA.includes("diarahkan") || lowerA.includes("kurang disiplin")) {
-    paragraph = `${opener}dalam menjalankan aktivitas dan rutinitas harian, ${pronoun} masih mengandalkan dorongan atau pengingat langsung dari orang tua. Pola ini menandakan bahwa pembentukan kedisiplinan dan tanggung jawab mandiri masih membutuhkan proses pembiasaan yang lebih terstruktur. Apabila pendampingan dilakukan secara konsisten, ${pronoun} akan mulai menginternalisasi aturan harian tanpa merasa tertekan. Tujuan utama dari area ini adalah memberikan kesempatan kepada anak untuk belajar mengatur kebutuhan dirinya sendiri secara bertahap.`;
-    temuan = `Rutinitas harian masih bergantung pada bimbingan atau pengingat orang tua (${cleanAnswer}).`;
-    analisis = `Ketergantungan pada pengarahan luar adalah proses wajar yang perlu ditransisikan menuju dorongan inisiatif internal anak.`;
-    arahPengembangan = `Melatih kemandirian rutinitas harian dan membangun rasa tanggung jawab atas kebutuhan diri sendiri.`;
+    return `${pronoun} masih mengandalkan dorongan dan pengingat langsung dari orang tua untuk mengawali rutinitas harian (${cleanAnswer}). Pembiasaan terstruktur melalui rutinitas visual akan membantu ${pronoun} membangun tanggung jawab mandiri dari dalam diri.`;
   } else if (lowerA.includes("pemalu") || lowerA.includes("sulit berteman") || lowerA.includes("adaptasi")) {
-    paragraph = `${opener}ketika berada di lingkungan atau situasi baru, ${pronoun} cenderung membutuhkan waktu ekstra untuk mengamati sebelum berani membuka interaksi. Kebutuhan waktu adaptasi ini sebaiknya tidak langsung dipandang sebagai kendala sosialisasi, melainkan kehati-hatian alami dalam proses penyesuaian diri. Memberikan rasa aman dan ruang yang ramah akan membuat ${pronoun} lebih siap berpartisipasi tanpa rasa cemas. Kemampuan yang sedang dipupuk di sini adalah rasa percaya diri sosial dalam suasana yang mendukung.`;
-    temuan = `${pronoun} memerlukan waktu adaptasi ekstra di lingkungan atau situasi baru (${cleanAnswer}).`;
-    analisis = `Kebutuhan jeda pengamatan sebelum berinteraksi adalah bentuk mekanisme penyesuaian emosi sosial yang wajar.`;
-    arahPengembangan = `Memupuk keberanian dan kenyamanan berinteraksi sosial dalam kelompok kecil atau lingkungan baru.`;
+    return `Ketika berada di lingkungan baru, ${pronoun} membutuhkan waktu ekstra untuk mengamati sebelum berani membuka interaksi (${cleanAnswer}). Hal ini mencerminkan kehati-hatian alami yang dapat dikembangkan menjadi kepercayaan diri sosial melalui dukungan lingkungan yang ramah.`;
   } else {
-    paragraph = `${opener}kondisi ${cleanAnswer} memberikan gambaran mendalam mengenai kebiasaan tumbuh kembang yang sedang dihayati oleh ${pronoun}. Memahami pola ini membantu orang tua mengarahkan gaya pendampingan yang selaras dengan ritme dan karakter alamiah anak. Perhatian pada aspek ini memastikan bahwa kebiasaan positif semakin menguat, sementara kendala kecil dapat diantisipasi sejak dini. Kemampuan utama yang terus dilatih adalah kedisiplinan diri, komunikasi terbuka, serta regulasi emosi di rumah.`;
-    temuan = `Orang tua mengamati kondisi: ${cleanAnswer}.`;
-    analisis = `Gambaran perilaku ini menjadi dasar penting bagi orang tua dalam menyusun ritme pendampingan yang responsif di rumah.`;
-    arahPengembangan = `Melatih konsistensi kebiasaan belajar dan menguatkan kemandirian diri anak.`;
+    return `Jawaban orang tua menggambarkan kondisi ${cleanAnswer} dalam keseharian ${pronoun}. Memahami pola ini membantu orang tua mengarahkan pendampingan yang selaras dengan karakter anak untuk menguatkan kedisiplinan dan kesadaran diri.`;
   }
-
-  return `${paragraph}\n\nTemuan:\n${temuan}\n\nAnalisis:\n${analisis}\n\nArah Pengembangan:\n${arahPengembangan}`;
 }
 
 /**
