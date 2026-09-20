@@ -555,12 +555,21 @@ const SEMANTIC_MAPPINGS: SemanticMapping[] = [
   { keywords: /sulit.*fokus|terlalu.*aktif|pemalu|malu|takut.*tampil|kurang.*percaya.*diri/i, title: "Kepercayaan Diri & Fokus Berinteraksi", category: "concern", recTitle: "Bangun Rasa Percaya Diri & Fokus", recDesc: (c) => `Berikan penguatan positif, ruang eksplorasi terarah, dan latihan fokus sederhana agar ${c} lebih percaya diri.` },
   { keywords: /mudah.*menyerah|frustrasi|menyerah|kehilangan.*motivasi|putus\s*asa|malas/i, title: "Ketahanan dalam Menghadapi Tantangan", category: "concern", recTitle: "Bangun Ketahanan Belajar", recDesc: (c) => `Dampingi ${c} saat menghadapi kesulitan dan ajarkan bahwa proses belajar membutuhkan ketekunan bertahap.` },
   { keywords: /menunda|prokrastinasi|tunda|SKS.*kebut|larut\s*malam/i, title: "Manajemen Waktu Belajar", category: "concern", recTitle: "Bantu Pengaturan Jadwal Belajar", recDesc: (c) => `Bantu ${c} membuat jadwal belajar harian yang realistis dan dampingi secara bertahap untuk membangun konsistensi.` },
-  { keywords: /bingung.*jurusan|belum.*gambaran|belum.*tahu.*jurusan|belum.*pilih/i, title: "Eksplorasi Minat & Arah Pendidikan", category: "concern", recTitle: "Dampingi Eksplorasi Minat", recDesc: (c) => `Ajak ${c} berdiskusi santai tentang bidang yang menarik dan fasilitasi pengalaman eksplorasi berbagai bidang.` },
+  { keywords: /bingung.*jurusan|belum.*gambaran|belum.*tahu.*jurusan|belum.*pilih|nilai.*akademik.*belum.*optimal/i, title: "Eksplorasi Minat & Arah Pendidikan", category: "concern", recTitle: "Dampingi Eksplorasi Minat", recDesc: (c) => `Ajak ${c} berdiskusi santai tentang bidang yang menarik dan fasilitasi pengalaman eksplorasi berbagai bidang.` },
   { keywords: /belum.*portofolio|belum.*organisasi|belum.*proyek|belum.*terlibat/i, title: "Pengalaman Kegiatan di Luar Kelas", category: "concern", recTitle: "Dorong Keterlibatan dalam Kegiatan", recDesc: (c) => `Dorong ${c} untuk mulai mencoba satu kegiatan yang sesuai minatnya, meski dalam skala kecil.` },
   { keywords: /sulit.*berteman|menarik\s*diri|pendiam.*sekali|susah.*adaptasi/i, title: "Adaptasi Sosial dengan Teman Sebaya", category: "concern", recTitle: "Fasilitasi Interaksi Sosial", recDesc: (c) => `Ciptakan kesempatan bermain atau belajar bersama teman agar ${c} lebih nyaman bersosialisasi.` },
   { keywords: /masih.*harus.*diminta|perlu.*diarahkan|belum.*bisa.*sendiri/i, title: "Kemandirian dalam Kegiatan Harian", category: "concern", recTitle: "Latih Kemandirian Bertahap", recDesc: (c) => `Berikan tanggung jawab kecil yang sesuai usia ${c} dan berikan apresiasi saat berhasil menyelesaikannya.` },
+  { keywords: /menunggu.*arahan|perlu.*dorongan|kurang.*inisiatif/i, title: "Inisiatif Pengambilan Keputusan", category: "concern", recTitle: "Latih Inisiatif Mandiri", recDesc: (c) => `Berikan dorongan kepada ${c} untuk berani mengambil keputusan kecil dan mencari solusi mandiri.` },
 
   // --- POSITIVE indicators ---
+  { keywords: /langsung.*bekerja|bekerja|dunia.*kerja/i, title: "Orientasi Karir & Dunia Kerja", category: "positive", recTitle: "Dukung Kesiapan Karir", recDesc: (c) => `Berikan wawasan dan pengalaman praktis yang mendukung kesiapan ${c} dalam memasuki dunia kerja.` },
+  { keywords: /kuliah|melanjutkan.*kuliah|beasiswa|perguruan.*tinggi/i, title: "Orientasi Perguruan Tinggi", category: "positive", recTitle: "Dukung Orientasi Kuliah", recDesc: (c) => `Ajak ${c} mengeksplorasi informasi jurusan dan perguruan tinggi yang sesuai dengan minat utamanya.` },
+  { keywords: /mulai.*mengetahui|sudah.*sangat.*memahami|memahami.*potensi/i, title: "Pemetaan & Kesadaran Potensi Diri", category: "positive", recTitle: "Perkuat Kesadaran Potensi", recDesc: (c) => `Bantu ${c} mengasah kelebihan dirinya melalui pengalaman nyata dan tantangan yang relevan.` },
+  { keywords: /cukup.*sering|sangat.*sering|kegiatan.*luar.*sekolah/i, title: "Keaktifan Kegiatan Ekstrakurikuler", category: "positive", recTitle: "Dukung Keaktifan Ekstrakurikuler", recDesc: (c) => `Fasilitasi keterlibatan ${c} dalam berbagai kegiatan positif di luar jam pelajaran.` },
+  { keywords: /bazar|kewirausahaan|produk|usaha.*sendiri|bisnis/i, title: "Pengalaman Kewirausahaan & Karya Kreatif", category: "positive", recTitle: "Fasilitasi Jiwa Kewirausahaan", recDesc: (c) => `Berikan ruang bagi ${c} untuk mengembangkan ide bisnis atau karya kreatif secara mandiri.` },
+  { keywords: /public\s*speaking|leadership|problem\s*solving|kreativitas|digital\s*skill/i, title: "Pengembangan Soft Skill & Kepemimpinan", category: "positive", recTitle: "Asah Soft Skill & Kepemimpinan", recDesc: (c) => `Dorong ${c} untuk aktif melatih kemampuan komunikasi, kepemimpinan, dan penyelesaian masalah.` },
+  { keywords: /pembelajaran.*berbasis.*proyek|persiapan.*kuliah|pengembangan.*minat/i, title: "Kebutuhan Pendampingan Pembelajaran Proyek", category: "positive", recTitle: "Fasilitasi Pembelajaran Proyek", recDesc: (c) => `Sediakan kesempatan belajar berbasis proyek dan eksplorasi minat agar ${c} lebih siap menghadapi jenjang berikutnya.` },
+  { keywords: /cukup.*penting|sangat.*penting/i, title: "Kesadaran Kesiapan Masa Depan", category: "positive", recTitle: "Pertahankan Kesadaran Masa Depan", recDesc: (c) => `Dampingi ${c} secara konsisten dalam mempersiapkan tahapan pendidikan selanjutnya.` },
   { keywords: /bermain.*teman|sosialisasi.*teman|banyak.*teman/i, title: "Interaksi Sosial Bersama Teman", category: "positive", recTitle: "Dukung Interaksi Sosial Positif", recDesc: (c) => `Berikan ruang dan waktu bagi ${c} untuk bermain dan berinteraksi secara sehat bersama teman-temannya.` },
   { keywords: /percaya\s*diri.*disiplin|mandiri.*percaya\s*diri|karakter.*baik/i, title: "Fondasi Karakter Positif", category: "positive", recTitle: "Pertahankan Pembentukan Karakter", recDesc: (c) => `Apresiasi nilai-nilai karakter positif ${c} dan berikan teladan serta penguatan konsisten di rumah.` },
   { keywords: /menggambar|mewarnai|melukis|kreasi|seni\s*visual|craft/i, title: "Minat pada Aktivitas Kreatif", category: "positive", recTitle: "Kembangkan Aktivitas Kreatif", recDesc: (c) => `Berikan kesempatan kepada ${c} untuk menggambar, mewarnai, atau membuat karya sederhana secara rutin.` },
@@ -583,13 +592,40 @@ const SEMANTIC_MAPPINGS: SemanticMapping[] = [
  */
 function formatNaturalDescription(childName: string, rawA: string, title: string, category: "positive" | "concern", index: number = 0): string {
   const normA = rawA.trim().replace(/\.$/, "");
-  // Strip leading child name if present (e.g. "Adiba bermain..." -> "bermain...")
-  const cleanAnswer = normA.replace(new RegExp(`^(${childName}|ananda|ia|anak)\\s+`, "i"), "").trim();
+  
+  // Strip ALL occurrences of child name or generic pronouns from raw answer to prevent "Ananda Adiba" or "Adiba Adiba"
+  let cleanAnswer = normA;
+  if (childName && childName !== "-" && childName.trim().length > 1) {
+    const escaped = childName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    cleanAnswer = cleanAnswer.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "").replace(/\s+/g, " ").trim();
+  }
+  cleanAnswer = cleanAnswer.replace(/^(ananda|ia|anak)\s+/i, "").trim();
   const lowerA = cleanAnswer.toLowerCase();
 
   // Alternate pronouns naturally: Ananda, Ia
   const pronoun = index % 2 === 0 ? "Ananda" : "Ia";
 
+  if (lowerA.includes("langsung bekerja")) {
+    return `${pronoun} memiliki ketertarikan untuk langsung memasuki dunia kerja setelah kelulusan, yang menunjukkan orientasi mandiri dan praktis.`;
+  }
+  if (lowerA.includes("mulai mengetahui")) {
+    return `${pronoun} mulai menyadari dan mengenali potensi serta kelebihan dirinya, yang menjadi modal penting dalam menentukan arah pendidikan.`;
+  }
+  if (lowerA.includes("cukup sering") || lowerA.includes("sangat sering")) {
+    return `${pronoun} aktif berpartisipasi dalam berbagai kegiatan di luar kelas untuk memperluas pengalaman dan jejaring sosialnya.`;
+  }
+  if (lowerA.includes("public speaking") || lowerA.includes("leadership") || lowerA.includes("problem solving")) {
+    return `${pronoun} menunjukkan potensi dan ketertarikan dalam mengasah soft skill utama seperti komunikasi, kepemimpinan, dan pemecahan masalah.`;
+  }
+  if (lowerA.includes("menunggu arahan")) {
+    return `${pronoun} masih cenderung menunggu arahan ketika menghadapi hambatan baru, sehingga memerlukan dorongan inisiatif secara bertahap.`;
+  }
+  if (lowerA.includes("bazar") || lowerA.includes("kewirausahaan")) {
+    return `${pronoun} sudah memiliki pengalaman dalam proyek kewirausahaan atau bazar, yang melatih pemikiran kreatif dan jiwa usaha sejak dini.`;
+  }
+  if (lowerA.includes("pembelajaran berbasis proyek")) {
+    return `${pronoun} menyukai metode pembelajaran berbasis proyek dan pengembangan minat yang relevan dengan kesiapan masa depan.`;
+  }
   if (lowerA.includes("lebih dari 2 jam") || lowerA.includes("lebih dari 3 jam") || lowerA.includes("4–6 jam") || lowerA.includes("4-6 jam")) {
     return `Penggunaan perangkat digital dengan durasi ${cleanAnswer} harian memerlukan kesepakatan batas waktu layar yang sehat dan seimbang.`;
   }
@@ -618,6 +654,7 @@ function formatNaturalDescription(childName: string, rawA: string, title: string
     return `${pronoun} menunjukkan minat tinggi dalam ${cleanAnswer}, yang menjadi sarana ekspresi dan kreativitas positif.`;
   }
 
+  if (cleanAnswer.length === 0) return `${pronoun} menunjukkan kebiasaan belajar dan tumbuh kembang yang baik.`;
   return `${pronoun} ${cleanAnswer.charAt(0).toLowerCase() + cleanAnswer.slice(1)}.`;
 }
 
@@ -644,28 +681,39 @@ function interpretAnswer(answer: string, question: string): { title: string; des
     }
   }
 
+  // Topic classification from question
+  const lowerQ = question.toLowerCase();
+  let cleanTitle = "Pola Pendampingan Belajar";
+  if (lowerQ.includes("waktu luang") || lowerQ.includes("kegiatan") || lowerQ.includes("gawai") || lowerQ.includes("gadget")) {
+    cleanTitle = "Aktivitas Harian & Pengisian Waktu Luang";
+  } else if (lowerQ.includes("perhatian") || lowerQ.includes("kendala") || lowerQ.includes("masalah")) {
+    cleanTitle = "Area Perhatian Pendampingan";
+  } else if (lowerQ.includes("bakat") || lowerQ.includes("minat") || lowerQ.includes("potensi")) {
+    cleanTitle = "Eksplorasi Minat & Bakat";
+  } else if (lowerQ.includes("jurusan") || lowerQ.includes("sekolah") || lowerQ.includes("pendidikan")) {
+    cleanTitle = "Orientasi & Perencanaan Pendidikan";
+  } else if (lowerQ.includes("karakter") || lowerQ.includes("sosial") || lowerQ.includes("emosi")) {
+    cleanTitle = "Perkembangan Karakter & Sosial";
+  }
+
   // Strict negative/concern detection
   const isNegative = /(belum|sulit|kurang|jarang|menunda|menangis|marah|keberatan|terkendala|kesulitan|bingung|tidak pernah|terbeban|dibantu|masih dibantu|pemalu|mudah menyerah|terlalu aktif|lebih dari|berlebih)/i.test(lowerA);
   if (isNegative) {
-    const cleanQ = question.replace(/^(bagaimana|apa|seberapa|apakah)\s+/i, "").replace(/\?$/, "").trim();
-    const shortQ = cleanQ.length > 50 ? cleanQ.slice(0, 47) + "..." : cleanQ;
     return {
-      title: `Pendampingan pada ${shortQ.charAt(0).toUpperCase() + shortQ.slice(1)}`,
+      title: cleanTitle,
       description: "",
       category: "concern",
-      recTitle: `Pendampingan Bertahap`,
+      recTitle: `Pendampingan ${cleanTitle}`,
       recDesc: (c) => `Dampingi ${c} secara bertahap dan komunikatif pada aspek ini.`,
     };
   }
 
   // Generic positive
-  const cleanQ = question.replace(/^(bagaimana|apa|seberapa|apakah)\s+/i, "").replace(/\?$/, "").trim();
-  const shortQ = cleanQ.length > 50 ? cleanQ.slice(0, 47) + "..." : cleanQ;
   return {
-    title: `${shortQ.charAt(0).toUpperCase() + shortQ.slice(1)}`,
+    title: cleanTitle,
     description: "",
     category: "positive",
-    recTitle: `Pengayaan Potensi ${shortQ.charAt(0).toUpperCase() + shortQ.slice(1)}`,
+    recTitle: `Pengayaan ${cleanTitle}`,
     recDesc: (c) => `Fasilitasi dan kembangkan minat serta potensi ${c} pada aspek ini.`,
   };
 }
