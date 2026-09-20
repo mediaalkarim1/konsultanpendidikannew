@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { processConsultation } from "./process-consultation";
+import { processConsultation, IN_MEMORY_CONSULTATION_STORE, IN_MEMORY_ANSWERS_STORE, IN_MEMORY_ANALYSIS_STORE } from "./process-consultation";
 import { getAdminSupabase } from "@/lib/supabase-admin";
 import { DEFAULT_UNIFIED_PROMPT } from "@/lib/ai-prompt-default";
 import { generateInterpretedAnalysis } from "./ai-engine";
@@ -371,7 +371,30 @@ export const deleteConsultation = createServerFn({ method: "POST" })
       const { error: err2 } = await supabaseAdmin.from("consultation_analysis").delete().eq("consultation_id", id);
       if (err2) console.warn("[deleteConsultation] consultation_analysis delete notice:", err2.message);
 
-      // 2. Delete main row from consultations table
+      // 2. Delete backup records from settings table (key: consultation.${id}, analysis.${id}, or containing ${id})
+      const { error: errSet1 } = await supabaseAdmin.from("settings").delete().eq("key", `consultation.${id}`);
+      if (errSet1) console.warn("[deleteConsultation] settings consultation backup delete notice:", errSet1.message);
+
+      const { error: errSet2 } = await supabaseAdmin.from("settings").delete().eq("key", `analysis.${id}`);
+      if (errSet2) console.warn("[deleteConsultation] settings analysis backup delete notice:", errSet2.message);
+
+      const { error: errSet3 } = await supabaseAdmin.from("settings").delete().like("key", `%${id}%`);
+      if (errSet3) console.warn("[deleteConsultation] settings like delete notice:", errSet3.message);
+
+      // 3. Clear in-memory stores if present
+      try {
+        IN_MEMORY_CONSULTATION_STORE.delete(id);
+        IN_MEMORY_ANSWERS_STORE.delete(id);
+        IN_MEMORY_ANALYSIS_STORE.delete(id);
+      } catch (_) {}
+
+      // 4. Delete parent row from parents table if linked by consultation_id
+      try {
+        await supabaseAdmin.from("parents").delete().eq("consultation_id", id);
+        await supabaseAdmin.from("parents").delete().eq("id", id);
+      } catch (_) {}
+
+      // 5. Delete main row from consultations table
       const { error: err3 } = await supabaseAdmin.from("consultations").delete().eq("id", id);
       if (err3) {
         console.error("[deleteConsultation] Error deleting from consultations table:", err3.message);
