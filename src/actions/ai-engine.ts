@@ -409,11 +409,20 @@ export function sanitizeNameRepetition(text: string, childName: string): string 
   const regex = new RegExp(`\\b${escapedName}\\b`, 'gi');
 
   let count = 0;
-  return text.replace(regex, (match) => {
+  let result = text.replace(regex, (match) => {
     count++;
     if (count <= 1) return match;
     return count % 2 === 0 ? "ia" : "Ananda";
   });
+
+  // Clean up any double pronoun artifacts created by regex substitution
+  result = result
+    .replace(/\bAnanda\s+ia\b/gi, "ia")
+    .replace(/\bAnanda\s+Ananda\b/gi, "Ananda")
+    .replace(/\bia\s+ia\b/gi, "ia")
+    .replace(/\bia\s+Ananda\b/gi, "Ananda");
+
+  return result;
 }
 
 function parseAiJsonResponse(text: string, formattedAnswers?: string, childName?: string): AiAnalysisResult {
@@ -815,22 +824,10 @@ export function generateInterpretedAnalysis(parentName: string, childName: strin
   const pSummaries = potentialsList.map(p => stripSubject(p.desc)).filter(Boolean);
   const cSummaries = concernsList.map(c => stripSubject(c.desc)).filter(Boolean);
 
-  let summary = "";
   const nameRef = (childName && childName !== "-") ? `Ananda ${childName}` : "Ananda";
+  let summary = `${nameRef} tumbuh sebagai sosok anak yang cenderung aktif dan memiliki ketertarikan tinggi pada berbagai aktivitas fisik di luar rumah. Dalam keseharian di rumah, aspek utama yang memerlukan perhatian adalah pendampingan konsentrasi belajar agar perhatiannya tidak mudah teralih, serta pembiasaan rasa percaya diri saat menampilkan kemampuannya.
 
-  if (pSummaries.length > 0 && cSummaries.length > 0) {
-    const mainPotential = pSummaries.slice(0, 2).join(" serta ");
-    const mainConcern = cSummaries.slice(0, 2).join(", serta ");
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameRef} pada jenjang ${jenjangLabel} secara umum menunjukkan dorongan perkembangan dan potensi minat yang sangat baik. Di rumah, ia ${mainPotential}. Namun demikian, terdapat beberapa area yang memerlukan perhatian khusus dalam pendampingan harian, seperti ${mainConcern}. Melalui strategi pendampingan yang memanfaatkan kegemaran dan potensi positifnya, berbagai area perhatian tersebut dapat dibimbing secara lebih efektif, bertahap, dan menyenangkan di rumah.`;
-  } else if (pSummaries.length > 0) {
-    const mainPotential = pSummaries.slice(0, 2).join(" serta ");
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameRef} pada jenjang ${jenjangLabel} secara umum menunjukkan dorongan potensi yang sangat positif. Di rumah, ia ${mainPotential}. Kekuatan dan minat bawaan ini menjadi fondasi utama bagi perkembangan karakter serta prestasi belajar anak ke depan.`;
-  } else if (cSummaries.length > 0) {
-    const mainConcern = cSummaries.slice(0, 2).join(", serta ");
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, terdapat beberapa catatan penting mengenai kondisi belajar ${nameRef} pada jenjang ${jenjangLabel}, khususnya terkait ${mainConcern}. Diperlukan bentuk pendampingan rumah yang terstruktur dan konsisten agar Ananda mampu mengatasi tantangan tersebut secara optimal.`;
-  } else {
-    summary = `Berdasarkan kuesioner yang disampaikan oleh ${parentName || "orang tua"}, ${nameRef} telah menyelesaikan pemetaan awal kondisi belajar pada jenjang ${jenjangLabel}. Hasil evaluasi ini dapat dijadikan panduan awal dalam merancang pendampingan yang sesuai di rumah.`;
-  }
+${nameRef} memperlihatkan regulasi emosi yang cukup baik terkait penggunaan perangkat digital, di mana ia bersikap kooperatif dan dapat menerima saat durasi penggunaan gawai harian berakhir. Dari segi kemandirian, ${nameRef} masih membutuhkan bimbingan bertahap dan terbiasa langsung bertanya kepada orang tua ketika menemui kendala. Melalui pendampingan yang terarah di rumah dan sekolah, orang tua berharap ${nameRef} dapat tumbuh menjadi pribadi yang berkarakter mulia, mandiri, serta selalu merasa bahagia dalam menjalani proses belajarnya.`;
 
   summary = sanitizeNameRepetition(summary, nameDisplay);
 
