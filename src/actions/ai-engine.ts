@@ -687,9 +687,9 @@ function formatNaturalDescription(childName: string, rawA: string, title: string
 function interpretAnswer(answer: string, question: string): { title: string; description: string; category: "positive" | "concern"; recTitle: string; recDesc: (childName: string) => string } | null {
   const lowerA = answer.toLowerCase();
 
-  // Skip demographic / trivial answers
-  if (/^(\d+\s*tahun|ya|tidak|mungkin|belum sekolah|tk\s*[ab]|sd|smp|sma)$/i.test(answer.trim())) return null;
-  if (answer.trim().length < 5 || answer === "-") return null;
+  // Skip demographic / trivial answers (age, grade level, yes/no confirmation)
+  if (/^(\d+([–\-]\d+)?\s*tahun|ya|tidak|mungkin|belum sekolah|tk\s*[ab]|sd(\s*kelas.*)?|smp(\s*kelas.*)?|sma(\s*kelas.*)?)$/i.test(answer.trim())) return null;
+  if (answer.trim().length < 4 || answer === "-") return null;
 
   for (const mapping of SEMANTIC_MAPPINGS) {
     if (mapping.keywords.test(lowerA)) {
