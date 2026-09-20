@@ -91,6 +91,7 @@ function KonsultasiPage() {
   const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   const [exportingCsvId, setExportingCsvId] = useState<string | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   async function handleDownloadCsv(consultationId: string, parentName: string, level: string) {
@@ -302,28 +303,36 @@ function KonsultasiPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus data konsultasi ini? Seluruh jawaban & analisis terkait akan dihapus secara permanen.")) return;
-    
-    // Optimistically update UI so the row disappears immediately
-    const prevData = [...data];
-    setData((prev) => prev.filter((item) => item.id !== id));
-    setTotal((prev) => Math.max(0, prev - 1));
+  async function handleDelete(id: string, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (deletingId === id) return;
+
+    if (!confirm("Tindakan ini akan menghapus data konsultasi secara permanen. Lanjutkan?")) return;
+
+    setDeletingId(id);
 
     try {
       const res = await deleteConsultation({ data: { id, email: userEmail || "admin" } });
       if (res && res.success) {
         toast.success("Data berhasil dihapus secara permanen");
-        if (data.length <= 1 && page > 1) setPage(page - 1);
-        else fetchData();
+        setData((prev) => prev.filter((item) => item.id !== id));
+        setTotal((prev) => Math.max(0, prev - 1));
+        if (data.length <= 1 && page > 1) {
+          setPage(page - 1);
+        } else {
+          await fetchData();
+        }
         fetchStats();
       } else {
         toast.error("Gagal menghapus data: " + (res?.error || "Terjadi kesalahan pada server"));
-        setData(prevData); // Restore UI on failure
       }
-    } catch (e: any) {
-      toast.error("Gagal menghapus data: " + (e.message || "Error koneksi"));
-      setData(prevData); // Restore UI on error
+    } catch (err: any) {
+      toast.error("Gagal menghapus data: " + (err.message || "Error koneksi"));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -678,11 +687,17 @@ function KonsultasiPage() {
                           </button>
 
                           <button
-                            onClick={() => handleDelete(row.id)}
-                            className="rounded-md border border-red-200 p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            type="button"
+                            onClick={(e) => handleDelete(row.id, e)}
+                            disabled={deletingId === row.id}
+                            className="rounded-md border border-red-200 p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                             title="Hapus Data"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            {deletingId === row.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
                           </button>
                         </div>
                       </td>
