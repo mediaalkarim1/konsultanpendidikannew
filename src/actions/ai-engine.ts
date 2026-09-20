@@ -841,16 +841,22 @@ ${nameRef} memperlihatkan regulasi emosi yang cukup baik terkait penggunaan pera
     }
   }
 
-  const formattedConcerns = concernsList.length > 0
-    ? concernsList.map((c, i) => `❗ ${String(i + 1).padStart(2, '0')}. ${c.title}\n${c.desc}`).join("\n\n")
+  // Enforce precise counts according to prompt specification:
+  // 5 Attention Areas, 3 Potentials, 6 Action Plan Recommendations
+  const finalConcernsList = concernsList.slice(0, 5);
+  const finalPotentialsList = potentialsList.slice(0, 3);
+  const finalRecsList = uniqueRecommendations.slice(0, 6);
+
+  const formattedConcerns = finalConcernsList.length > 0
+    ? finalConcernsList.map((c, i) => `❗ ${String(i + 1).padStart(2, '0')}. ${c.title}\n${c.desc}`).join("\n\n")
     : "Belum ditemukan area utama yang perlu mendapat perhatian khusus berdasarkan jawaban orang tua.";
 
-  const formattedPotentials = potentialsList.length > 0
-    ? potentialsList.map((p, i) => `🌟 ${String(i + 1).padStart(2, '0')}. ${p.title}\n${p.desc}`).join("\n\n")
+  const formattedPotentials = finalPotentialsList.length > 0
+    ? finalPotentialsList.map((p, i) => `🌟 ${String(i + 1).padStart(2, '0')}. ${p.title}\n${p.desc}`).join("\n\n")
     : "-";
 
-  const formattedRecommendations = uniqueRecommendations.length > 0
-    ? uniqueRecommendations.map((r, i) => `🎯 ${String(i + 1).padStart(2, '0')}. ${r.title}\n${r.desc}`).join("\n\n")
+  const formattedRecommendations = finalRecsList.length > 0
+    ? finalRecsList.map((r, i) => `🎯 ${String(i + 1).padStart(2, '0')}. ${r.title}\n${r.desc}`).join("\n\n")
     : "-";
 
   const fullNarrative = `RINGKASAN AWAL\n\n${summary}\n\nAREA YANG PERLU DIPERHATIKAN\n\n${formattedConcerns}\n\nMINAT & POTENSI\n\n${formattedPotentials}\n\nREKOMENDASI PENDAMPINGAN RUMAH\n\n${formattedRecommendations}`;
