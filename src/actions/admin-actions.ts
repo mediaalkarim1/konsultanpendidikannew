@@ -346,26 +346,40 @@ export const updateConsultationStatus = createServerFn({ method: "POST" })
 
 export const deleteConsultation = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
-  .validator((payload: { id: string; email: string }) => payload)
+  .validator((payload: any) => payload)
   .handler(async (ctx) => {
     try {
       const supabaseAdmin = getAdminSupabase();
-      const id = ctx.data.id;
+      const rawPayload = ctx.data || {};
+      const id = typeof rawPayload === "string" ? rawPayload : (rawPayload.id || rawPayload.data?.id || (ctx as any).id);
+      const email = typeof rawPayload === "object" ? (rawPayload.email || rawPayload.data?.email || "admin") : "admin";
 
+      if (!id) {
+        console.error("[deleteConsultation] Missing ID in payload:", ctx.data);
+        return { success: false, error: "ID konsultasi tidak valid" };
+      }
+
+      console.log(`[deleteConsultation] Deleting consultation ID: ${id}`);
+
+      // Fetch row info for activity log
       const { data: cons } = await supabaseAdmin.from("consultations").select("parent_name, level").eq("id", id).maybeSingle();
 
       // 1. Delete child records from consultation_answers and consultation_analysis first
-      await supabaseAdmin.from("consultation_answers").delete().eq("consultation_id", id);
-      await supabaseAdmin.from("consultation_analysis").delete().eq("consultation_id", id);
+      const { error: err1 } = await supabaseAdmin.from("consultation_answers").delete().eq("consultation_id", id);
+      if (err1) console.warn("[deleteConsultation] consultation_answers delete notice:", err1.message);
+
+      const { error: err2 } = await supabaseAdmin.from("consultation_analysis").delete().eq("consultation_id", id);
+      if (err2) console.warn("[deleteConsultation] consultation_analysis delete notice:", err2.message);
 
       // 2. Delete main row from consultations table
-      const { error } = await supabaseAdmin.from("consultations").delete().eq("id", id);
-      if (error) {
-        console.error("[deleteConsultation] Error deleting consultation:", error);
-        return { success: false, error: error.message };
+      const { error: err3 } = await supabaseAdmin.from("consultations").delete().eq("id", id);
+      if (err3) {
+        console.error("[deleteConsultation] Error deleting from consultations table:", err3.message);
+        return { success: false, error: err3.message };
       }
 
-      await logActivityInternal(ctx.data.email, "DELETE_CONSULTATION", { consultation_id: id, parent_name: cons?.parent_name, level: cons?.level });
+      await logActivityInternal(email, "DELETE_CONSULTATION", { consultation_id: id, parent_name: cons?.parent_name, level: cons?.level });
+      console.log(`[deleteConsultation] Successfully deleted consultation ID: ${id}`);
       return { success: true };
     } catch (e: any) {
       console.error("[deleteConsultation] Exception:", e);

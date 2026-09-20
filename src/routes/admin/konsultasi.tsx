@@ -305,43 +305,25 @@ function KonsultasiPage() {
   async function handleDelete(id: string) {
     if (!confirm("Apakah Anda yakin ingin menghapus data konsultasi ini? Seluruh jawaban & analisis terkait akan dihapus secara permanen.")) return;
     
+    // Optimistically update UI so the row disappears immediately
+    const prevData = [...data];
+    setData((prev) => prev.filter((item) => item.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
+
     try {
       const res = await deleteConsultation({ data: { id, email: userEmail || "admin" } });
       if (res && res.success) {
         toast.success("Data berhasil dihapus secara permanen");
-      } else {
-        console.warn("[handleDelete] Server action notice, executing client fallback deletion:", res?.error);
-        await supabase.from("consultation_answers").delete().eq("consultation_id", id);
-        await supabase.from("consultation_analysis").delete().eq("consultation_id", id);
-        const { error: clientErr } = await supabase.from("consultations").delete().eq("id", id);
-
-        if (clientErr) {
-          toast.error("Gagal menghapus data: " + clientErr.message);
-          fetchData();
-          return;
-        }
-        toast.success("Data berhasil dihapus secara permanen");
-      }
-
-      if (data.length <= 1 && page > 1) setPage(page - 1);
-      else fetchData();
-      fetchStats();
-    } catch (e: any) {
-      console.warn("[handleDelete] Exception, executing fallback deletion:", e);
-      try {
-        await supabase.from("consultation_answers").delete().eq("consultation_id", id);
-        await supabase.from("consultation_analysis").delete().eq("consultation_id", id);
-        const { error: clientErr } = await supabase.from("consultations").delete().eq("id", id);
-        if (clientErr) {
-          toast.error("Gagal menghapus data: " + clientErr.message);
-        } else {
-          toast.success("Data berhasil dihapus secara permanen");
-        }
-        fetchData();
+        if (data.length <= 1 && page > 1) setPage(page - 1);
+        else fetchData();
         fetchStats();
-      } catch (clientErr: any) {
-        toast.error("Gagal menghapus data: " + e.message);
+      } else {
+        toast.error("Gagal menghapus data: " + (res?.error || "Terjadi kesalahan pada server"));
+        setData(prevData); // Restore UI on failure
       }
+    } catch (e: any) {
+      toast.error("Gagal menghapus data: " + (e.message || "Error koneksi"));
+      setData(prevData); // Restore UI on error
     }
   }
 
