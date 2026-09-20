@@ -651,11 +651,14 @@ function formatDeepAreaDescriptionV2(childName: string, rawA: string, title: str
   const pronoun = index % 2 === 0 ? nameDisplay : "ia";
 
   if (category === "positive") {
-    return `${pronoun} menunjukkan potensi positif yang nyata dalam aspek ${title.toLowerCase()} berdasarkan pengamatan di rumah (${normA}). Kebiasaan ini menjadi modal dasar yang berharga untuk menguatkan rasa percaya diri serta karakter bawaannya dalam aktivitas sehari-hari. Pendampingan orang tua difokuskan pada pengayaan wadah eksplorasi agar keahlian ini tumbuh semakin matang dan bermanfaat bagi masa depannya.`;
+    return `${pronoun} menunjukkan potensi positif pada aspek ${title.toLowerCase()} berdasarkan pengamatan di rumah (${normA}). Kondisi ini menjadi modal berharga untuk menguatkan rasa percaya diri serta karakter bawaan anak. Pendampingan dapat diarahkan pada pengayaan wadah eksplorasi agar keahlian ini berkembang optimal.`;
   }
 
-  // Deep 5-Sentence Structure for Attention Areas
-  return `${pronoun} menunjukkan kondisi di mana ${normA.toLowerCase()}, yang menjadi perhatian penting dalam dinamika harian anak. Pola ini terlihat dari bagaimana ${pronoun} merespons situasi saat belajar atau mengisi waktu luang di rumah. Dari sudut pandang pendidikan, kondisi ini bukan sebuah hambatan permanen, melainkan peluang berharga untuk melatih keterampilan diri secara bertahap. Keterampilan ini sangat penting untuk membentuk kedisiplinan dan kemandirian anak di masa depan. Pendampingan rumah difokuskan pada pemberian aturan terstruktur yang konsisten disertai dorongan hangat dari orang tua.`;
+  // Exact 2-3 Sentences (35-60 words):
+  // Kalimat 1 — Temuan: Sebutkan kemampuan atau pola yang terlihat berdasarkan jawaban orang tua.
+  // Kalimat 2 — Makna: Jelaskan secara singkat apa arti temuan tersebut dalam konteks perkembangan anak.
+  // Kalimat 3 — Arah pengembangan: Jelaskan kemampuan apa yang dapat diperkuat.
+  return `${pronoun} masih memperlihatkan kondisi di mana ${normA.toLowerCase()}. Kondisi ini menunjukkan bahwa kemampuan dalam aspek ${title.toLowerCase()} masih dapat diperkuat secara bertahap melalui aktivitas yang terstruktur. Pendampingan terarah di rumah dapat membantu membangun rasa percaya diri dan kedisiplinan anak secara konsisten.`;
 }
 
 export function generateInterpretedAnalysis(
