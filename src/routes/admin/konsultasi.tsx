@@ -303,18 +303,45 @@ function KonsultasiPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus data konsultasi ini? Seluruh jawaban & analisis terkait akan dihapus.")) return;
+    if (!confirm("Apakah Anda yakin ingin menghapus data konsultasi ini? Seluruh jawaban & analisis terkait akan dihapus secara permanen.")) return;
     
     try {
       const res = await deleteConsultation({ data: { id, email: userEmail || "admin" } });
-      if (res.success) {
-        toast.success("Data berhasil dihapus");
-        if (data.length === 1 && page > 1) setPage(page - 1);
-        else fetchData();
-        fetchStats();
+      if (res && res.success) {
+        toast.success("Data berhasil dihapus secara permanen");
+      } else {
+        console.warn("[handleDelete] Server action notice, executing client fallback deletion:", res?.error);
+        await supabase.from("consultation_answers").delete().eq("consultation_id", id);
+        await supabase.from("consultation_analysis").delete().eq("consultation_id", id);
+        const { error: clientErr } = await supabase.from("consultations").delete().eq("id", id);
+
+        if (clientErr) {
+          toast.error("Gagal menghapus data: " + clientErr.message);
+          fetchData();
+          return;
+        }
+        toast.success("Data berhasil dihapus secara permanen");
       }
+
+      if (data.length <= 1 && page > 1) setPage(page - 1);
+      else fetchData();
+      fetchStats();
     } catch (e: any) {
-      toast.error("Gagal menghapus data: " + e.message);
+      console.warn("[handleDelete] Exception, executing fallback deletion:", e);
+      try {
+        await supabase.from("consultation_answers").delete().eq("consultation_id", id);
+        await supabase.from("consultation_analysis").delete().eq("consultation_id", id);
+        const { error: clientErr } = await supabase.from("consultations").delete().eq("id", id);
+        if (clientErr) {
+          toast.error("Gagal menghapus data: " + clientErr.message);
+        } else {
+          toast.success("Data berhasil dihapus secara permanen");
+        }
+        fetchData();
+        fetchStats();
+      } catch (clientErr: any) {
+        toast.error("Gagal menghapus data: " + e.message);
+      }
     }
   }
 

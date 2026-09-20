@@ -348,12 +348,29 @@ export const deleteConsultation = createServerFn({ method: "POST" })
   .middleware([requireAdmin])
   .validator((payload: { id: string; email: string }) => payload)
   .handler(async (ctx) => {
-    const supabaseAdmin = getAdminSupabase();
-    const { data: cons } = await supabaseAdmin.from("consultations").select("parent_name, level").eq("id", ctx.data.id).maybeSingle();
-    const { error } = await supabaseAdmin.from("consultations").delete().eq("id", ctx.data.id);
-    if (error) throw error;
-    await logActivityInternal(ctx.data.email, "DELETE_CONSULTATION", { consultation_id: ctx.data.id, parent_name: cons?.parent_name, level: cons?.level });
-    return { success: true };
+    try {
+      const supabaseAdmin = getAdminSupabase();
+      const id = ctx.data.id;
+
+      const { data: cons } = await supabaseAdmin.from("consultations").select("parent_name, level").eq("id", id).maybeSingle();
+
+      // 1. Delete child records from consultation_answers and consultation_analysis first
+      await supabaseAdmin.from("consultation_answers").delete().eq("consultation_id", id);
+      await supabaseAdmin.from("consultation_analysis").delete().eq("consultation_id", id);
+
+      // 2. Delete main row from consultations table
+      const { error } = await supabaseAdmin.from("consultations").delete().eq("id", id);
+      if (error) {
+        console.error("[deleteConsultation] Error deleting consultation:", error);
+        return { success: false, error: error.message };
+      }
+
+      await logActivityInternal(ctx.data.email, "DELETE_CONSULTATION", { consultation_id: id, parent_name: cons?.parent_name, level: cons?.level });
+      return { success: true };
+    } catch (e: any) {
+      console.error("[deleteConsultation] Exception:", e);
+      return { success: false, error: e.message || "Gagal menghapus data" };
+    }
   });
 
 // --- WhatsApp Templates Management ---
